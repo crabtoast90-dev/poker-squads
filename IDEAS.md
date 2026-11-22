@@ -16,5 +16,5 @@ Anything beyond the current scope goes here, not into the build. The user decide
 - A card-soldier court theme.
 
 ## Noticed while building (Claude)
-- Rarity thresholds could rise by round, since returning cards carry bonus chips and scores climb from ~150 (round 1) to ~1100 (round 8). Brian to decide.
+- Rarity thresholds could rise by round (now option (b) of PLAN N3).
 - A tiny squad formation editor (swap front/back) if "no placement" ever feels limiting.

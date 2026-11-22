@@ -24,3 +24,8 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - The reveal replaces the hand while it plays: cards gather, chips x mult count up, the rarity needle sweeps (and jumps on a roll-up), a roulette picks the scoring card, then the unit card pops out with a flash for Epic/Legendary. *(my call)*
 - Deck return (sim only tonight): three candidate rules measured in BALANCE.md (lowest card any suit, lowest of own suit, the exact source card). The brief's "lowest" is in use until Brian picks. *(my call to offer the other two)*
 - The fight's "top unit" = most damage + healing; its card is outlined gold with a "carrying" tag during the fight and is named on the result. *(my call)*
+
+## 2026-11-22 (Brian's playtest notes on the setup slice)
+- Brian: rarity felt deterministic and the card number felt meaningless. Epics and Rares must be hard to get early (it is a roguelike: the deck should grow into better units over the run). Don't take too big a swing for the prototype.
+- Brian: scrap the two squads. Two heroes command one army with 6 unit slots.
+- Brian: the player needs a bar to clear, like a blind. Show a "combat power" estimate for the enemy army and for your own.
