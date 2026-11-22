@@ -37,3 +37,4 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - Rarity thresholds 0 / 140 / 320 / 600 / 1100. Luck roll chance = 5% + 25% x progress to the next tier; two-tier jump = 3% x progress. Round 1: 16% of births are Rare or better (target under 20%). *(my call on the numbers, Brian on the direction)*
 - Skeleton strength multiplier 1.6 so the greedy bot clears 25% (target 20-35%). A placeholder ahead of lane C tuning. *(my call)*
 - The luck roll on screen: a bar whose coloured end is the rank-up chance; a marker races and settles where the sim's roll landed, then "RANK UP!" with a flash and chime, or "No luck". *(my call)*
+- Brian: classes next, decided in the design chat; Claude wrote CLASSES-REPORT.md as the brief for it.

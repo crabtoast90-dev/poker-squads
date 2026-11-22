@@ -18,6 +18,10 @@ Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.
 - [x] **N3. Rarity that has to be earned; numbers that matter.** Brian picked (a) + (c): raised thresholds, the roll-up staged as a luck roll with rank-up moments, each unit card shows its power. Options were: (a) raise the thresholds so a starting deck mostly births Common/Uncommon, Rare from a straight or flush, Epic rare; (b) thresholds rise each round so the deck has to grow; (c) rarity sets the tier but the roll-up is shown as a visible luck moment, and the card number gets a bigger stat spread (show the unit's power number on the card so a K visibly beats a 4). Tie to a new target: Rare+ in round 1 under ~20% of births. Files: SHARED `data.js`, `sim.js`, `scripts/sim.mjs`; view for the card's power number.
   *Done when:* Brian picks an option and BALANCE.md shows the round-by-round rarity spread hitting it.
 
+## Next: make class matter
+- [ ] **K1. Class matters.** Brian is deciding the direction in the design chat from `CLASSES-REPORT.md` (options A-E). Build what comes back, rerun the sim, report the class-aware lead. Files: SHARED `data.js`, `fight.js`, `power.js`, `bots.js`, `scripts/sim.mjs`; view.
+  *Done when:* BALANCE.md shows the class-aware bot clearing 10+ points more than greedy (or Brian's new class target).
+
 ## Lane A: the full 8-round run with deck return
 - [ ] **A1. Run on screen.** After the fight: lives (3), round counter, next round's skeletons, round 8 boss, run won/lost screens. The 6 units become cards (suit, number, rarity bonus chips) and replace deck cards by the rule in `returnRule`. Files: `src/view/squads-view.js`, `src/main.js`, `index.html`, `src/style.css`, `scripts/check.mjs`; SHARED `src/squads/sim.js`, `run.js`.
   *Done when:* the check plays a whole run through the buttons (bot moves, Skip on fights) and its deck and results match `runRun` in Node; returned cards show their rarity border and +chips in the hand.
