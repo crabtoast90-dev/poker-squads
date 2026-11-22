@@ -82,7 +82,7 @@ export function createRound(data, seed, opts = {}) {
     seed, rng, data,
     roundIndex: opts.roundIndex ?? 0,
     heroes: opts.heroes ?? data.startHeroes.slice(),
-    kept: opts.kept ?? [], relics, talents: opts.talents ?? [], doctrines: opts.doctrines ?? {},
+    kept: (opts.kept ?? []).slice(), relics, talents: (opts.talents ?? []).slice(), doctrines: { ...(opts.doctrines ?? {}) },
     draw: shuffle(rng, deck), used: [], hand: [],
     handsLeft: data.round.hands,
     discardsLeft: data.round.discards + (relics.includes('pokerDiscard') ? data.relics.pokerDiscard.discards : 0),

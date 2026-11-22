@@ -1,6 +1,6 @@
 # Balance report
 
-Written by `npm run sim` on 2026-11-22 04:22 UTC (32 s). Do not edit by hand. 300 seeded runs per bot; heroes Warden Ortha + Hexmother Vey; deck return rule "lowest".
+Written by `npm run sim` on 2026-11-22 04:30 UTC (28 s). Do not edit by hand. 300 seeded runs per bot; heroes Warden Ortha + Hexmother Vey; deck return rule "lowest".
 
 A lost fight ends the run. Skeleton strength, the round curve and shop prices were set by hand once (greedy near 25%, 2-3 buys a shop); no further tuning (prototype rule).
 
@@ -15,8 +15,8 @@ A lost fight ends the run. Skeleton strength, the round curve and shop prices we
 | Army built around its heroes vs same-strength army that ignores them (one fight) | 10+ points | 82% vs 0% (+82) | **PASS** |
 | ...and over whole runs (bot aiming at its heroes vs away from them) | 10+ points | 57% vs 19% (+38) | **PASS** |
 | One-class army wins less often than a mixed front + back army | mono below mixed | mono 3%, mixed 14% | **PASS** |
-| Armies of about equal power (within 8%): you win | 25-75% | 58% (511 fights) | **PASS** |
-| Combat power calls the winner | 70%+ | 92% | **PASS** |
+| Armies of about equal power (within 8%): you win | 25-75% | 50% (461 fights) | **PASS** |
+| Combat power calls the winner | 70%+ | 93% | **PASS** |
 | Round-1 births that are Rare or better | under 20% | 16% | **PASS** |
 | Runs with a Legendary born in rounds 1-3 | 5-15% | 6% | **PASS** |
 | Round-8 hands that are four of a kind or better | under 25% | 25% | **PASS** |
@@ -48,18 +48,18 @@ A lost fight ends the run. Skeleton strength, the round curve and shop prices we
 
 ## Combat power: does the number mean anything?
 
-It calls the winner in 92% of fights (89% in rounds 3-8).
+It calls the winner in 93% of fights (90% in rounds 3-8).
 
 | your power / skeleton power | fights | you win |
 |---|---|---|
-| 0-0.7 | 20 | 5% |
-| 0.7-0.85 | 144 | 17% |
-| 0.85-0.92 | 116 | 28% |
-| 0.92-1 | 211 | 51% |
-| 1-1.08 | 300 | 63% |
-| 1.08-1.2 | 532 | 82% |
-| 1.2-1.4 | 1067 | 95% |
-| 1.4+ | 3091 | 99% |
+| 0-0.7 | 12 | 0% |
+| 0.7-0.85 | 105 | 10% |
+| 0.85-0.92 | 102 | 25% |
+| 0.92-1 | 180 | 38% |
+| 1-1.08 | 281 | 58% |
+| 1.08-1.2 | 495 | 78% |
+| 1.2-1.4 | 1044 | 95% |
+| 1.4+ | 3262 | 99% |
 
 ## The run (greedy bot)
 

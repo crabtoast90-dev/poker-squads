@@ -62,6 +62,17 @@ function sideStats(data, mine, theirs, f) {
   if (heroes.includes('priestess')) shieldedBonus += data.heroes.priestess.shieldedDmg;
   if (mine.some((u) => u.bonuses.includes('bless'))) shieldedBonus += B.priestess.bless.dmg * 0.5;
   dps *= 1 + shieldedBonus * cover;
+  // Talents that act during the fight (the rest are already in the fighters' stats).
+  const talents = f.ctx[mine[0]?.side ?? 'p'].talents;
+  const n = (cls) => mine.filter((u) => u.cls === cls).length / (mine.length || 1);
+  if (talents.includes('knightSpikes')) dps *= 1 + 0.1 * n('knight');
+  if (talents.includes('witchCrit')) dps *= 1 + 0.25 * n('rogue');
+  if (talents.includes('witchSmoke')) ehp *= 1 + 0.15 * n('witch');
+  if (talents.includes('witchWard')) dps *= 1 + 0.15 * n('witch') * cover;
+  if (talents.includes('priestSteel')) ehp *= 1 + 0.1 * n('knight') * cover;
+  if (talents.includes('priestLight')) ehp *= 1 + 0.1 * cover;
+  if (talents.includes('rogueSense')) dps *= 1 + 0.15 * n('rogue');
+  if (talents.includes('rogueCover')) ehp *= 1 + 0.2 * n('rogue');
   if (relics.includes('knightOath')) ehp *= 1 + 0.04 * mine.filter((u) => u.cls === 'knight').length;
   if (relics.includes('priestThorn')) dps *= 1 + 0.1 * cover;
   // No front line: the back line is hit from the first second.

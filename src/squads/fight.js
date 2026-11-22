@@ -108,7 +108,7 @@ export function createFight(data, army, roundIndex, seed) {
   });
   armyAuras(data, foes, ectx);
   lineUp(foes, 'e', data);
-  return { rng: makeRng(seed), units: [...mine, ...foes], ctx: { p: ctx, e: ectx }, time: 0, ticks: 0, result: null, events: [], gold: 0 };
+  return { rng: makeRng(seed), units: [...mine, ...foes], ctx: { p: ctx, e: ectx }, time: 0, ticks: 0, result: null, events: [], gold: 0, talentCrit: data.talents.rogueSense.crit };
 }
 
 const alive = (f, side) => f.units.filter((u) => u.alive && u.side === side);
@@ -130,7 +130,7 @@ const other = (side) => (side === 'p' ? 'e' : 'p');
 function critChance(f, u) {
   if (!sideTalent(f, u.side, 'rogueSense')) return u.crit;
   const burning = f.units.filter((e) => e.alive && e.side !== u.side && e.burning).length;
-  return Math.min(0.95, u.crit + burning * 0.05);
+  return Math.min(0.95, u.crit + burning * f.talentCrit);
 }
 
 // Who u attacks: a Taunt in reach first; Rogues the back line; everyone else the front line
@@ -221,7 +221,7 @@ function attack(data, f, u, t, foes) {
   if (u.cls === 'rogue') {
     crit = u.sureCrit || (u.first && u.bonuses.includes('ambush')) || f.rng() < critChance(f, u);
     u.sureCrit = false;
-    if (crit) dmg *= t.burning && sideTalent(f, u.side, 'witchCrit') ? Math.max(3, u.critMult) : u.critMult;
+    if (crit) dmg *= t.burning && sideTalent(f, u.side, 'witchCrit') ? Math.max(3, u.critMult * 1.5) : u.critMult; // Kindled Blades: triple, or 1.5x on top of Corvin's triple
   }
   u.first = false;
   dmg *= u.dmgMult;
