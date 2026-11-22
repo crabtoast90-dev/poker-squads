@@ -40,6 +40,7 @@ function fighter(data, id, side, o, ctx) {
   };
   u.hp = u.maxHp;
   if (o.cls === 'knight') u.armor = c.armor * ds * P * (1 + (b?.armor ?? 0)) * (has('knightPlate') ? 1 + data.relics.knightPlate.armor : 1);
+  u.ownArmor = R(u.armor);
   if (o.cls === 'rogue') {
     u.crit = c.crit + (b?.crit ?? 0) + (has('rogueEdge') ? data.relics.rogueEdge.crit : 0);
     u.critMult = hero('rogue') ? data.heroes.rogue.critMult : c.critMult;
@@ -114,6 +115,12 @@ function pickTarget(data, f, u, foes) {
   const front = foes.filter((e) => e.row === 'front');
   const back = foes.filter((e) => e.row === 'back');
   const pool = u.cls === 'rogue' ? (back.length ? back : front) : front.length ? front : back;
+  if (u.cls === 'witch' && u.burn) {
+    // Witches spread Burn: once their target burns at least as hot, move to one that doesn't.
+    const fresh = pool.filter((e) => !e.burning || e.burning.dps < u.burn || e.burning.left < 1);
+    if (cur && fresh.includes(cur)) return cur;
+    if (fresh.length) return nearest(u, fresh);
+  }
   if (cur && pool.includes(cur)) return cur;
   // A fresh target: one of the two nearest in the pool, by the fight's dice (fights stay a slope).
   const sorted = pool.slice().sort((a, b) => dist2(u, a) - dist2(u, b) || (a.id < b.id ? -1 : 1));
@@ -139,27 +146,37 @@ function wound(data, f, from, to, amount, out, kind) {
     wound(data, f, to, from, hadShield, null, 'thorn');
     f.events.push({ t: f.ticks, type: 'thorn', who: to.id, target: from.id, amount: Math.round(hadShield) });
   }
-  if (to.hp <= 0 && to.alive) die(data, f, to, from);
+  if (to.hp <= 0 && to.alive) die(data, f, to, from, kind);
   return real + soak;
 }
 
-function die(data, f, u, by) {
+function die(data, f, u, by, kind = 'hit') {
   u.alive = false;
   f.events.push({ t: f.ticks, type: 'down', who: u.id, by: by.id });
   const friends = alive(f, u.side);
   // Hexmother Vey: a dying burning enemy passes its Burn to the nearest of its allies.
   if (u.burning && sideHero(f, u.side === 'p' ? 'e' : 'p', 'witch') && friends.length) {
     const next = nearest(u, friends);
-    next.burning = { ...u.burning };
+    ignite(next, u.burning);
     f.events.push({ t: f.ticks, type: 'jump', who: u.id, target: next.id });
   }
   // Last Oath: a fallen Knight's Armor goes to its allies.
-  if (u.cls === 'knight' && sideHas(f, u.side, 'knightOath')) for (const a of friends) a.armor = R(a.armor + u.armor);
+  if (u.cls === 'knight' && sideHas(f, u.side, 'knightOath')) for (const a of friends) a.armor = R(a.armor + u.ownArmor);
   // Killer's Mark and Shade Corvin: a Rogue kill.
-  if (by.cls === 'rogue' && by.side !== u.side && by.alive) {
+  if (kind === 'hit' && by.cls === 'rogue' && by.side !== u.side && by.alive) {
     if (sideHas(f, by.side, 'rogueMark')) by.sureCrit = true;
     if (sideHero(f, by.side, 'rogue')) by.cd = 0;
   }
+}
+
+// Armor takes a flat amount off each hit, but never more than armorCap of it.
+const afterArmor = (data, dmg, t) => Math.max(1, dmg * (1 - data.fight.armorCap), dmg - t.armor);
+
+// Burn: the stronger Burn stays (a weaker one only tops up the time left).
+function ignite(t, burn) {
+  if (!t.alive) return;
+  if (!t.burning || burn.dps >= t.burning.dps) t.burning = { ...burn };
+  else t.burning.left = Math.max(t.burning.left, burn.left);
 }
 
 function attack(data, f, u, t, foes) {
@@ -175,13 +192,13 @@ function attack(data, f, u, t, foes) {
   if (u.blessed) dmg *= 1 + u.blessed;
   if (u.shield > 0 && sideHero(f, u.side, 'priestess')) dmg *= 1 + data.heroes.priestess.shieldedDmg;
   const hits = [];
-  wound(data, f, u, t, Math.max(1, dmg - t.armor), hits, 'hit');
+  wound(data, f, u, t, afterArmor(data, dmg, t), hits, 'hit');
   if (u.cls === 'witch') {
-    if (t.alive) t.burning = { dps: u.burn, left: u.burnFor, from: u.id };
+    ignite(t, { dps: u.burn, left: u.burnFor, from: u.id });
     if (u.bonus === 'chill' && t.alive) t.chill = B.witch.chill.for;
     if (u.bonus === 'splash') {
       const r2 = B.witch.splash.radius ** 2;
-      for (const e of foes) if (e !== t && e.alive && dist2(e, t) <= r2) wound(data, f, u, e, Math.max(1, dmg * B.witch.splash.share - e.armor), hits, 'hit');
+      for (const e of foes) if (e !== t && e.alive && dist2(e, t) <= r2) wound(data, f, u, e, afterArmor(data, dmg * B.witch.splash.share, e), hits, 'hit');
     }
   }
   if (u.bonus === 'poison' && t.alive) {

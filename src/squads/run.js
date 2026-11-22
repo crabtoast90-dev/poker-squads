@@ -69,6 +69,8 @@ function offerRelics(run) {
   if (matching.length) out.push(matching[Math.floor(run.rng() * matching.length)]);
   const rest = free.filter((k) => !out.includes(k));
   while (out.length < 3 && rest.length) out.push(rest.splice(Math.floor(run.rng() * rest.length), 1)[0]);
+  // Shuffle so the matching relic isn't always in the same spot.
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(run.rng() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   return out;
 }
 

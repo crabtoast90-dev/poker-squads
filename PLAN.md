@@ -35,9 +35,10 @@ Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.
   *Done when:* BALANCE.md shows events per round, and the check screenshots an event and both choices via `?deck`.
 
 ## Open from the classes pass
-- [ ] **K2. Late fights too long.** Round 8 (2 heroes + 13 units vs 15) averages 35 s against the 15-25 s target; 1 fight in 15 hits the 60 s limit. Options: steeper damage per round, fewer skeletons late, or a cap on Shields.
-- [ ] **K3. Power number misreads weak-looking armies.** Armies rated 30%+ behind still win about a third of the time (mostly rounds 6-8). It calls the winner 75% overall.
-- [ ] **K4. Early Legendaries rare.** 3% of runs get one in rounds 1-3 (target 5-15%).
+- [x] **K2. Late fights too long.** Fixed by the review fixes (Last Oath, Armor cap, Burn): round 8 now averages 17 s.
+- [ ] **K3. Power number reads even fights as yours.** At equal power you win only about 1 in 4 (target band 25-75%, just inside). It calls the winner 79% overall.
+- [ ] **K4. Early Legendaries rare.** 4% of runs get one in rounds 1-3 (target 5-15%).
+- [ ] **K5. Rogues rarely reach the back line.** From round 3 every skeleton army has Taunt Brutes, which catch Rogues on their way in. Working as written, but it blunts the Rogue fantasy.
 
 ## Lane C: tuning (after 0b, A1 and B2)
 - [ ] **C1. Three candidate tuning sets** that each hit every target in BALANCE.md (greedy clears 20-35%, class-aware +10 points, hero events 0.7-1.3/round, round-8 four-of-a-kind-or-better under 25%, early Legendary 5-15% of runs, fights 15-25 s, run 15-25 min). Fix timing or structure before stats. Files: SHARED `data.js`, `scripts/sim.mjs`.

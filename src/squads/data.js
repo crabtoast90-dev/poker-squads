@@ -60,7 +60,7 @@ export const SQUADS = {
     rogue: { name: 'Rogue', row: 'front', hp: 55, atk: 8, interval: 0.85, range: 1.1, speed: 3.6,
       mechanic: 'Crit', crit: 0.25, critMult: 2 }, // chance to hit for double; jumps to the back line
     witch: { name: 'Witch', row: 'back', hp: 55, atk: 8, interval: 1.6, range: 5.5, speed: 1.8,
-      mechanic: 'Burn', burn: 3.2, burnFor: 4 }, // damage per second for burnFor s, ignores Armor (x power)
+      mechanic: 'Burn', burn: 3.2, burnFor: 4 }, // damage per second for burnFor s, ignores Armor (x power); Witches spread it to unburnt enemies
     priestess: { name: 'Priestess', row: 'back', hp: 65, atk: 3.5, interval: 1.5, range: 5, speed: 1.8,
       mechanic: 'Shield', shield: 24, shieldEvery: 3 }, // shields the most hurt ally (x power)
   },
@@ -129,9 +129,9 @@ export const SQUADS = {
     { power: 1.1, lean: 'Caster horde', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte'] },
     { power: 1.35, lean: 'Iron line', units: ['brute', 'brute', 'warrior', 'warrior', 'warrior', 'warrior', 'caster', 'caster', 'acolyte', 'acolyte', 'stalker'] },
     { power: 1.65, lean: 'Night raid', units: ['brute', 'warrior', 'stalker', 'stalker', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'acolyte', 'acolyte', 'caster'] },
-    { power: 2.15, lean: 'Grave choir', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'acolyte', 'stalker', 'stalker', 'warrior'] },
-    { power: 2.75, lean: 'Bone legion', units: ['brute', 'brute', 'warrior', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'warrior'] },
-    { power: 3.4, lean: 'The Bone King', units: ['king', 'brute', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'warrior'] },
+    { power: 1.95, lean: 'Grave choir', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'acolyte', 'stalker', 'stalker', 'warrior'] },
+    { power: 2.25, lean: 'Bone legion', units: ['brute', 'brute', 'warrior', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'warrior'] },
+    { power: 2.6, lean: 'The Bone King', units: ['king', 'brute', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'warrior'] },
   ],
 
   // ---- The fight ----
@@ -139,13 +139,14 @@ export const SQUADS = {
     tick: 0.1, // seconds per sim step
     damageScale: 1.5, // every hit, Burn, Shield x this: sets fight length
     damagePerRound: 0.1, // ...plus 10% per round, so bigger late armies still finish near 20 s
-    enemyPower: 2.5, // every skeleton's power x this (on top of the round's power); set by hand so greedy clears ~30% *(placeholder)*
+    enemyPower: 2.45, // every skeleton's power x this (on top of the round's power); set by hand so greedy clears ~30% *(placeholder)*
     maxTime: 60, // still going at 60 s: the side with more health left (by share) wins
     spread: 0.3, // each hit rolls x (1 ± spread): fights are a slope, not a cliff
     rows: { front: 1.6, back: 4.2 }, // distance from the middle line, metres
     slotGap: 1.0, // gap between units in a row
     separation: 0.7, // allies closer than this push apart
     shieldCap: 0.6, // a unit's Shield can't exceed this share of its max health
+    armorCap: 0.75, // Armor never takes more than 75% off a hit
   },
 
   // ---- Combat power: one number per army, the bar to clear. It reads every fighter as built

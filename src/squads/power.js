@@ -32,17 +32,20 @@ function sideStats(data, mine, theirs, f) {
   let ehp = 0;
   let dps = 0;
   let shieldRate = 0;
+  const poisoners = mine.filter((u) => u.bonus === 'poison').length || 1;
   for (const u of mine) {
-    const cut = Math.min(0.85, (data.combatPower.armorWorth * u.armor) / Math.max(1, avgHit));
+    const cut = Math.min(data.fight.armorCap, (data.combatPower.armorWorth * u.armor) / Math.max(1, avgHit));
     ehp += u.maxHp / (1 - cut * (1 - dotShare));
-    let hit = Math.max(1, u.atk * (1 + u.crit * (u.critMult - 1)) - avgArmor);
+    const raw = u.atk * (1 + u.crit * (u.critMult - 1));
+    let hit = Math.max(raw * (1 - data.fight.armorCap), raw - avgArmor);
     if (u.bonus === 'ambush') hit *= 1.05;
     if (u.cls === 'rogue' && heroes.includes('rogue')) hit *= 1.12; // attacks again after a kill
     if (u.cls === 'rogue' && relics.includes('rogueMark')) hit *= 1.05;
     let d = hit / u.interval;
     if (u.bonus === 'splash') d *= 1 + B.witch.splash.share * 0.8;
-    if (u.burn) d += u.burn * Math.min(1, u.burnFor / u.interval) * (heroes.includes('witch') ? 1.15 : 1);
-    if (u.bonus === 'poison') d += B.rogue.poison.dps * f.ctx.p.ds * u.power * Math.min(B.rogue.poison.max, B.rogue.poison.for / u.interval);
+    // A Witch keeps Burn going on about burnFor / interval targets (it spreads Burn), as many as there are.
+    if (u.burn) d += u.burn * Math.min(theirs.length || 1, u.burnFor / u.interval) * (heroes.includes('witch') ? 1.15 : 1);
+    if (u.bonus === 'poison') d += B.rogue.poison.dps * f.ctx.p.ds * u.power * Math.min(B.rogue.poison.max / poisoners, B.rogue.poison.for / u.interval);
     if (u.bonus === 'chill') d *= 1.15; // its target hits back slower
     if (relics.includes('witchSear') && theirs.length) d *= 1.08;
     dps += d;
@@ -59,7 +62,7 @@ function sideStats(data, mine, theirs, f) {
   if (heroes.includes('priestess')) shieldedBonus += data.heroes.priestess.shieldedDmg;
   if (mine.some((u) => u.bonus === 'bless')) shieldedBonus += B.priestess.bless.dmg * 0.5;
   dps *= 1 + shieldedBonus * cover;
-  if (relics.includes('knightOath')) ehp *= 1.05;
+  if (relics.includes('knightOath')) ehp *= 1 + 0.04 * mine.filter((u) => u.cls === 'knight').length;
   if (relics.includes('priestThorn')) dps *= 1 + 0.1 * cover;
   // No front line: the back line is hit from the first second.
   if (mine.length && !mine.some((u) => u.row === 'front')) ehp *= 0.8;
