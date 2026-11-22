@@ -22,6 +22,9 @@ Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.
 - [x] **K1. Class matters (classes pass).** Built Brian's spec from the design chat: class mechanics on every unit, face bonuses, 4 heroes (pick 2), formation rules, keep one, 12 relics, the full 8-round run on screen, power that counts it all. Files: SHARED `data.js`, `fight.js`, `power.js`, `bots.js`, `scripts/sim.mjs`; view.
   *Done when:* BALANCE.md shows the class-aware bot clearing 10+ points more than greedy (or Brian's new class target).
 
+## Next: decisions between hands
+- [ ] **D2. A decision layer between hands or rounds.** Brian is brainstorming it in the design room from `DESIGN-PROMPT-BETWEEN-HANDS.md`. Build the concept that comes back.
+
 ## Lane A: the full 8-round run with deck return (A1 done in the classes pass)
 - [x] **A1. Run on screen.** After the fight: lives (3), round counter, next round's skeletons, round 8 boss, run won/lost screens. The 6 units become cards (suit, number, rarity bonus chips) and replace deck cards by the rule in `returnRule`. Files: `src/view/squads-view.js`, `src/main.js`, `index.html`, `src/style.css`, `scripts/check.mjs`; SHARED `src/squads/sim.js`, `run.js`.
   *Done when:* the check plays a whole run through the buttons (bot moves, Skip on fights) and its deck and results match `runRun` in Node; returned cards show their rarity border and +chips in the hand.
