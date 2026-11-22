@@ -12,7 +12,7 @@ The user (Brian) is a game designer, not a programmer: report in plain language,
 ## How it's built
 - **Sim first.** Rules live in `src/squads/` (pure, seeded, no three.js/DOM/`Math.random`/clock): `data.js` (every number, by name), `poker.js` (scorer), `sim.js` (deck, birth, round), `fight.js`, `bots.js`, `run.js` (the whole run: heroes, rounds, keep, relics), `power.js` (combat power). `src/view/` and `src/main.js` only stage what the sim decided. Player input enters as actions (`heroes`, `play`, `discard`, `choose`, `resolve`, `keep`, `relic`).
 - **Numbers** only in `src/squads/data.js`. Poker numbers come from `RESEARCH.md` with its confidence marks.
-- **`npm run sim`** rewrites `BALANCE.md` against Brian's targets (pass/fail). Quote the headline back. For tuning, offer three candidate sets that each hit every target; fix timing or structure before stats.
+- **`npm run sim`** rewrites `BALANCE.md` against Brian's targets (pass/fail). Quote the headline back. **Prototype rule (Brian): no significant time on tuning.** Report misses and move on; only fix numbers that make the build unplayable or hide what a feature does. For tuning, offer three candidate sets that each hit every target; fix timing or structure before stats.
 - Stack: three.js (pinned), Vite, plain JS. Credit any asset in `CREDITS.md` the same day; never fetch art mid-session.
 - Test hooks: `?test` (manual clock, `__game.advance(ms)`), `?seed=N`, `?mode=squads`, `?tune=fight.enemyPower:3`, `?deck=S14,H14` (cards drawn first), `?relics=pokerFace,pokerPair` (start holding relics), `__game.state()/stateText()/bot()`.
 
