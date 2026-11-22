@@ -1,87 +1,94 @@
 # Balance report
 
-Written by `npm run sim` on 2026-11-22 02:15 UTC (55 s). Do not edit by hand.
+Written by `npm run sim` on 2026-11-22 02:49 UTC (26 s). Do not edit by hand. 300 seeded runs per bot; heroes Warden Ortha + Hexmother Vey; deck return rule "lowest".
 
-Poker numbers checked by Brian (fine for prototyping). Rarity thresholds and skeleton strength were set by hand for N3 (Rare+ in round 1 under 20%, greedy clears ~30%); the full three-candidate tuning is lane C. Hero events and the on-screen run are later lanes; the run here is sim only.
+Skeleton strength and fight pace were set by hand to land the greedy bot near 30% and fights near 20 s; a real tuning pass (three candidate sets) is lane C.
 
 ## Headline
 
-7 of 8 targets pass (one not built yet). 400 seeded runs per bot per return rule; return rule in use: "lowest".
+11 of 13 targets pass.
 
 | target | aim | now | |
 |---|---|---|---|
-| Greedy bot clears the run | 20-35% | 25% | **PASS** |
-| Class-aware bot clears more than greedy by | 10+ points | -2 points (23%) | **FAIL** |
-| Hero events per round | 0.7-1.3 | not built yet | - |
-| Round-8 hands that are four of a kind or better (rule "lowest") | under 25% | 20% | **PASS** |
-| Runs with a Legendary born in rounds 1-3 | 5-15% | 10% | **PASS** |
-| Round-1 births that are Rare or better | under 20% | 16% | **PASS** |
-| Combat power calls the winner | 80%+ of fights | 85% | **PASS** |
-| Fight length | 15-25 s | 22.1 s average | **PASS** |
-| Run length (estimate, cleared runs) | 15-25 min | 15.1 min | **PASS** |
+| Greedy bot clears the run | 20-35% | 26% | **PASS** |
+| Class-aware bot clears more than greedy by | 10+ points | +13 points (39%) | **PASS** |
+| Army built around its heroes vs same-strength army that ignores them (one fight) | 10+ points | 45% vs 0% (+45) | **PASS** |
+| ...and over whole runs (bot aiming at its heroes vs away from them) | 10+ points | 39% vs 5% (+34) | **PASS** |
+| One-class army wins less often than a mixed front + back army | mono below mixed | mono 5%, mixed 13% | **PASS** |
+| Armies of about equal power (within 8%): you win | 25-75% | 37% (928 fights) | **PASS** |
+| Combat power calls the winner | 70%+ | 72% | **PASS** |
+| Round-1 births that are Rare or better | under 20% | 15% | **PASS** |
+| Runs with a Legendary born in rounds 1-3 | 5-15% | 3% | **FAIL** |
+| Round-8 hands that are four of a kind or better | under 25% | 12% | **PASS** |
+| Fight length (all fights) | 15-25 s | 21.5 s | **PASS** |
+| Fight length with a late-run army (round 8: 2 heroes + 13 units) | 15-25 s | 34.9 s | **FAIL** |
+| Run length (estimate, cleared runs) | 15-25 min | 17.4 min | **PASS** |
+| Hero events per round | 0.7-1.3 | not built (cut from this pass) | - |
 
-**Class barely matters yet.** Playing for classes clears -2 points versus playing for raw score. In this build, rarity (score) decides fights far more than the class mix. You asked to know this.
+## Does class matter? (one fight, six Uncommon 9s, 200 fights each; skeletons set to 1.85x so a plain mixed army wins about half)
 
-## Deck drift: three rules for which card a returning unit replaces
+| army (heroes Ortha + Vey) | wins |
+|---|---|
+| Built around Ortha + Vey (3 Knights, 3 Witches) | 45% |
+| Ignores them (3 Rogues, 3 Priestesses) | 0% |
 
-Each round six units come back as cards and replace six deck cards; the deck stays at 52.
-
-| rule | what it replaces | round-8 four of a kind or better | greedy clears | class-aware clears | Legendary in rounds 1-3 |
-|---|---|---|---|---|---|
-| lowest (in use) | the lowest number in the deck, any suit (the brief) | 20% (1452 hands) | 25% | 23% | 10% |
-| lowestSameSuit | the lowest number of its own suit (suits stay 13 each) | 15% (1194 hands) | 12% | 16% | 9% |
-| source | the exact card it was born from (ranks and suits never change; cards only gain chips) | 0% (24 hands) | 0% | 0% | 4% |
-
-Round-by-round share of four of a kind or better (greedy bot):
-
-| rule | R1 | R2 | R3 | R4 | R5 | R6 | R7 | R8 |
-|---|---|---|---|---|---|---|---|---|
-| lowest | 1% | 1% | 2% | 3% | 6% | 10% | 13% | 20% |
-| lowestSameSuit | 1% | 1% | 2% | 3% | 5% | 7% | 12% | 15% |
-| source | 1% | 1% | 1% | 1% | 1% | 0% | 0% | 0% |
-
-## The run (greedy bot, rule in use)
-
-| round | reached | won | fight s | avg score | Common / Uncommon / Rare / Epic / Legendary born |
-|---|---|---|---|---|---|
-| 1 | 400 | 100% | 15.7 | 156 | 51% / 33% / 14% / 1% / 0% |
-| 2 | 400 | 100% | 17.2 | 192 | 41% / 33% / 22% / 3% / 1% |
-| 3 | 400 | 90% | 23.2 | 236 | 30% / 34% / 29% / 6% / 1% |
-| 4 | 400 | 59% | 23.6 | 295 | 19% / 32% / 37% / 11% / 1% |
-| 5 | 400 | 54% | 22.8 | 393 | 9% / 29% / 40% / 19% / 4% |
-| 6 | 386 | 45% | 23.8 | 499 | 4% / 22% / 38% / 29% / 7% |
-| 7 | 323 | 48% | 23.4 | 642 | 1% / 15% / 30% / 40% / 13% |
-| 8 (boss) | 242 | 42% | 30.4 | 869 | 0% / 6% / 18% / 53% / 23% |
-
-- Lives left at the end of cleared runs: 1.97 on average. Fights that hit the 45 s limit (counted as losses): 38 of 2951.
-- Fight length: shortest 8.0 s, longest 45.0 s.
-- Hands played in round 1: Two Pair 48%, Pair 15%, Straight 11%, Flush 9%, Full House 9%, Three of a Kind 8%, Four of a Kind 1%, High Card 0%, Straight Flush 0%.
-- Hands played in round 8: Full House 41%, Straight 24%, Four of a Kind 15%, Two Pair 10%, Flush 4%, Five of a Kind 3%, Straight Flush 1%, Flush House 1%, Three of a Kind 1%, Flush Five 0%.
+| army shape (averaged over all six hero pairs) | wins |
+|---|---|
+| 6 Knights | 4% |
+| 6 Witches | 0% |
+| 6 Rogues | 16% |
+| 6 Priestesses | 0% |
+| Mixed: 3 Knights + 3 Witches | 21% |
+| Mixed: 2 Knights, 1 Rogue, 2 Witches, 1 Priestess | 26% |
+| Mixed: 2 Rogues, 2 Witches, 2 Priestesses | 0% |
+| Mixed: 3 Knights + 3 Priestesses | 3% |
 
 ## Combat power: does the number mean anything?
 
-It calls the winner in 85% of all fights, and 79% of fights in rounds 3-8 (the closer ones).
-
-Win rate by how your army's power compares with the skeletons' (greedy bot, every fight):
+It calls the winner in 72% of fights (70% in rounds 3-8).
 
 | your power / skeleton power | fights | you win |
 |---|---|---|
-| 0-0.6 | 14 | 0% |
-| 0.6-0.8 | 334 | 4% |
-| 0.8-0.9 | 367 | 27% |
-| 0.9-1 | 417 | 54% |
-| 1-1.1 | 429 | 81% |
-| 1.1-1.25 | 485 | 93% |
-| 1.25-1.5 | 508 | 99% |
-| 1.5+ | 397 | 100% |
+| 0-0.7 | 471 | 32% |
+| 0.7-0.85 | 513 | 36% |
+| 0.85-0.92 | 308 | 37% |
+| 0.92-1 | 446 | 37% |
+| 1-1.08 | 482 | 37% |
+| 1.08-1.2 | 711 | 59% |
+| 1.2-1.4 | 1027 | 75% |
+| 1.4+ | 1732 | 94% |
+
+## The run (greedy bot)
+
+| round | skeletons | reached | won | fight s | timeouts | avg score | Common / Uncommon / Rare / Epic / Legendary born |
+|---|---|---|---|---|---|---|---|
+| 1 | Shield wall (8) | 300 | 74% | 20.7 | 1 | 156 | 51% / 34% / 13% / 2% / 0% |
+| 2 | Stalker raid (9) | 300 | 69% | 13.5 | 2 | 178 | 44% / 34% / 20% / 3% / 0% |
+| 3 | Caster horde (10) | 300 | 70% | 21.3 | 17 | 214 | 36% / 31% / 28% / 4% / 0% |
+| 4 | Iron line (11) | 272 | 69% | 23.1 | 16 | 252 | 27% / 32% / 33% / 7% / 1% |
+| 5 | Night raid (12) | 237 | 63% | 15.4 | 7 | 300 | 19% / 32% / 39% / 9% / 2% |
+| 6 | Grave choir (13) | 208 | 75% | 23.6 | 15 | 354 | 11% / 31% / 40% / 17% / 2% |
+| 7 | Bone legion (14) | 189 | 52% | 27.2 | 24 | 438 | 4% / 26% / 43% / 21% / 6% |
+| 8 | The Bone King (15) | 166 | 47% | 34.9 | 48 | 526 | 2% / 20% / 38% / 31% / 9% |
+
+- Fights that hit the 60 s limit (decided on health left): 130 of 1972.
+- Relics the class-aware bot took (per run): Slow Kindling 0.84, Tempered Plate 0.81, Searing Brand 0.80, Last Oath 0.75, Greater Ward 0.24, Twin Choice 0.18, Royal Court 0.17, Thorned Ward 0.16, Killer's Mark 0.16, Honed Edge 0.14, Lucky Coin 0.14, Loose Sleeve 0.12.
+
+## Does a strong early keep decide the run? (greedy bot)
+
+| unit kept after round 1 | runs | cleared |
+|---|---|---|
+| common | 11 | 0% |
+| uncommon | 102 | 24% |
+| rare | 155 | 28% |
+| epic | 30 | 33% |
+| legendary | 2 | 50% |
+
+- Won round 1: 32% clear (222 runs). Lost round 1: 10% clear (78 runs).
 
 ## Who does the work (greedy bot, all fights)
 
-- Share of damage plus healing: heroes 32%, Knights 12%, Priestesses 13%, Witches 23%, Rogues 20%.
-- The top unit in each fight does 32% of its side's work on average (8 fighters, so an even split would be 13%).
-- Hero skills fire 5.7 times a fight (two heroes); Priestess heals 6.5 times a fight.
-
-## The slice on screen (one round, fresh deck, round-1 skeletons)
-
-- Greedy bot wins the slice's fight 100% of the time; fights last 15.7 s.
-- Same seed, same round: yes. Same seed, same run: yes.
+- Share of damage plus shields: heroes 15%, Knights 11%, Priestesses 21%, Witches 33%, Rogues 21%.
+- The top unit does 29% of its army's work on average.
+- Hands played in round 1: Two Pair 47%, Pair 16%, Straight 11%, Flush 9%, Full House 9%, Three of a Kind 8%, Four of a Kind 0%, High Card 0%, Straight Flush 0%.
+- Same seed, same run: yes.
