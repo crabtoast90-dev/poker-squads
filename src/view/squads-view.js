@@ -76,7 +76,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     speed = 1;
     $('speed').textContent = '1x';
     hudEl.classList.remove('fighting');
-    for (const id of ['sq-end', 'keep', 'shop', 'rite']) $(id).hidden = true;
+    for (const id of ['sq-end', 'keep', 'shop', 'rite', 'fight-log']) $(id).hidden = true;
     $('board').hidden = false;
     $('bottom').hidden = false;
     drawBoard();
@@ -99,9 +99,34 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     const head = u.side === 'e' ? `<b class="rk">☠<small>${SUIT_SYMBOL[suit]}</small></b>` : u.hero ? `<b class="rk">♛${SUIT_SYMBOL[suit]}</b>` : `<b class="rk">${rankLabel(u.rank)}${SUIT_SYMBOL[suit]}${u.kept ? '<small>★</small>' : ''}</b>`;
     const name = u.side === 'e' || u.hero ? u.name : `${RARITY_NAME[u.rarity]} ${data.classes[u.cls].name}`;
     const bonus = (u.bonuses ?? []).map((k) => `<em>${data.bonuses[u.cls][k].name}</em>`).join('') + (u.traits?.length ? `<span class="trait">${u.traits.map((t) => data.traits[t].name).join(' + ')}${u.hand && (run.doctrines[u.hand] ?? 1) > 1 ? ` Lv${run.doctrines[u.hand]}` : ''}</span>` : '');
-    el.innerHTML = `${head}<span class="nm">${name}</span><span class="mech">${MECH_ICON[u.cls]} ${mechText(u)}</span>${bonus}${worth != null ? `<span class="pw">+${worth} power</span>` : ''}<span class="st">♥ <b class="hpn">${Math.round(u.hp)}</b> ⚔ ${u.atk.toFixed(0)}</span><span class="hp"><i></i></span>`;
+    el.dataset.tip = unitTip(u);
+    const skill = u.hero ? `<span class="skill">Lv ${u.level ?? 1} · ${heroOf(u).skill}</span>` : '';
+    el.innerHTML = `${head}<span class="nm">${name}</span>${skill}<span class="mech">${MECH_ICON[u.cls]} ${mechText(u)}</span>${bonus}${worth != null ? `<span class="pw">+${worth} power</span>` : ''}<span class="st">♥ <b class="hpn">${Math.round(u.hp)}</b> ⚔ ${u.atk.toFixed(0)}</span><span class="hp"><i></i></span>`;
     return el;
   }
+  const MECH_TEXT = {
+    knight: 'Armor: takes a flat amount off every hit (never more than 75% of it).',
+    witch: 'Burn: her hits set a burn that ignores Armor; she spreads it to enemies not yet burning.',
+    priestess: 'Shield: every few seconds shields the most hurt ally.',
+    rogue: 'Crit: a chance to hit for double; jumps straight to the enemy back line.',
+  };
+  const heroOf = (u) => Object.values(data.heroes).find((h) => h.name === u.name) ?? data.heroes[u.cls];
+  function unitTip(u) {
+    const lines = [];
+    const title = u.side === 'e' || u.hero ? u.name : `${RARITY_NAME[u.rarity]} ${rankLabel(u.rank)}${SUIT_SYMBOL[u.suit]} ${data.classes[u.cls].name}${u.kept ? ' (kept)' : ''}`;
+    lines.push(`<b>${title}</b>`);
+    if (u.hero) {
+      lines.push(`Hero, level ${u.level ?? 1}. Skill: ${heroOf(u).skill}`);
+      const tal = run.talents.filter((k) => data.talents[k].hero === u.cls);
+      if (tal.length) lines.push(`Talents: ${tal.map((k) => `${data.talents[k].name} (${data.talents[k].text})`).join('; ')}`);
+    }
+    lines.push(`${MECH_ICON[u.cls]} ${mechText(u)}. ${MECH_TEXT[u.cls]}`);
+    for (const k of u.bonuses ?? []) lines.push(`Bonus <b>${data.bonuses[u.cls][k].name}</b>: ${data.bonuses[u.cls][k].text}`);
+    for (const t of u.traits ?? []) lines.push(`Trait <b>${data.traits[t].name}</b> (from ${HAND_NAMES[u.hand]}${(run.doctrines[u.hand] ?? 1) > 1 ? `, doctrine Lv ${run.doctrines[u.hand]}` : ''}): ${data.traits[t].text}`);
+    lines.push(`Health ${Math.round(u.maxHp)} · hit ${u.atk.toFixed(0)} every ${u.interval.toFixed(2)} s${u.armor ? ` · Armor ${u.armor.toFixed(1)}` : ''}${u.shield ? ` · starts with Shield ${Math.round(u.shield)}` : ''}`);
+    return lines.join('<br>');
+  }
+
   // The board: both armies as the fight would line them up right now, with their power.
   function drawBoard() {
     const army = armyForFight(st);
@@ -141,11 +166,11 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     $('discards-left').textContent = st.discardsLeft;
     $('units-made').textContent = `${st.army.length}/${data.round.armySize}`;
     $('relics').innerHTML = [
-      ...run.relics.map((k) => `<span class="relic-chip" title="${data.relics[k].text}">${data.relics[k].name}</span>`),
-      ...run.talents.map((k) => `<span class="relic-chip talent" title="${data.talents[k].text}">${data.talents[k].name}</span>`),
-      ...Object.entries(run.doctrines).map(([h, l]) => `<span class="relic-chip doctrine">${HAND_NAMES[h]} Lv ${l}</span>`),
+      ...run.relics.map((k) => `<span class="relic-chip" data-tip="<b>${data.relics[k].name}</b> (relic)<br>${data.relics[k].text}">${data.relics[k].name}</span>`),
+      ...run.talents.map((k) => `<span class="relic-chip talent" data-tip="<b>${data.talents[k].name}</b> (${data.heroes[data.talents[k].hero].name})<br>${data.talents[k].text}${run.heroes.includes(data.talents[k].hero) ? '' : '<br>(inactive: hero not in your army)'}">${data.talents[k].name}</span>`),
+      ...Object.entries(run.doctrines).map(([h, l]) => `<span class="relic-chip doctrine" data-tip="<b>${HAND_NAMES[h]} Lv ${l}</b><br>+${(l - 1) * data.doctrine.chips} chips, +${(l - 1) * data.doctrine.mult} mult; trait ${data.traitOf[h].map((t) => data.traits[t].name).join(' + ') || 'none'} at ${Math.round(100 * (1 + data.doctrine.traitPerLevel * (l - 1)))}% strength">${HAND_NAMES[h]} Lv ${l}</span>`),
     ].join('') || '<span class="none">no relics, talents or doctrines yet</span>';
-    $('heroes-line').textContent = run.heroes.map((h) => data.heroes[h].name).join(' + ');
+    $('heroes-line').innerHTML = run.heroes.map((h) => `<span data-tip="<b>${data.heroes[h].name}</b> (${data.classes[data.heroes[h].cls].name}, Lv ${run.heroLevels[h] ?? 1})<br>${data.heroes[h].skill}">${data.heroes[h].name} Lv ${run.heroLevels[h] ?? 1}</span>`).join(' + ');
   }
 
   // ---- The hand ----
@@ -184,7 +209,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
       $('odds-hand').textContent = 'Pick up to 5 cards';
       return;
     }
-    $('odds-hand').innerHTML = `${pv.name}${pv.level > 1 ? ` <small>Lv ${pv.level}</small>` : ''} <span class="trait">${pv.traits.length ? `Trait: ${pv.traits.map((t) => `${data.traits[t].name} (${data.traits[t].text})`).join(' + ')}` : 'no trait'}</span>`;
+    $('odds-hand').innerHTML = `${pv.name}${pv.level > 1 ? ` <small>Lv ${pv.level}</small>` : ''} <span class="trait">${pv.traits.length ? `Trait: ${pv.traits.map((t) => `${data.traits[t].name} (${data.traits[t].text})`).join(' + ')}` : 'no trait'}</span>${pv.rarity.tier >= 2 || pv.rarity.odds.slice(2).some((p) => p > 0) ? ` <span class="herochance">hero chance ${pct(pv.rarity.odds.reduce((a, p, i) => a + p * data.heroEvents.chance[i], 0))}</span>` : ''}`;
     $('odds-score').innerHTML = `<b class="chips">${pv.chips}</b> × <b class="mult">${pv.mult}</b> = <b>${pv.score}</b>`;
     const faces = pv.scoring.filter((c) => c.rank >= data.birth.faceFrom).length;
     $('odds-class').innerHTML = Object.entries(pv.classOdds).sort((a, b) => b[1] - a[1])
@@ -251,7 +276,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     runAct(run, { type: 'play', ids });
     selected = [];
     pendingReveal = { before, playedCards };
-    if (st.phase === 'choose') showChoice();
+    if (st.phase === 'choose' && st.choice.kind !== 'hero') showChoice();
     else reveal();
   }
 
@@ -264,8 +289,16 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     const box = $('choice');
     box.hidden = false;
     const scoring = st.pending.ev.scoring;
-    $('choice-title').textContent = ch.kind === 'card' ? `${data.relics.pokerPair.name}: which card does the unit copy?` : `${data.relics.pokerFace.name}: pick the face bonus`;
+    $('choice-title').textContent = ch.kind === 'hero' ? `A hero rises: ${data.heroes[ch.cls].name}! Swap one of yours for them, or level one of yours.` : ch.kind === 'card' ? `${data.relics.pokerPair.name}: which card does the unit copy?` : `${data.relics.pokerFace.name}: pick the face bonus`;
     $('choice-opts').innerHTML = ch.options.map((o) => {
+      if (ch.kind === 'hero') {
+        const [how, i] = o.split(':');
+        const cur = run.heroes[Number(i)];
+        const SUITS = { knight: '♠', priestess: '♥', witch: '♣', rogue: '♦' };
+        return how === 'level'
+          ? `<button class="choice-opt" data-pick="${o}"><b>Level up ${data.heroes[cur].name}</b> Lv ${run.heroLevels[cur] ?? 1} → ${(run.heroLevels[cur] ?? 1) + 1}</button>`
+          : `<button class="choice-opt" data-pick="${o}"><b>Swap ${data.heroes[cur].name} out</b> for ${data.heroes[ch.cls].name} (${data.heroes[ch.cls].skill}). ${data.heroes[cur].name} becomes a Legendary A${SUITS[data.heroes[cur].cls]} in your deck.</button>`;
+      }
       if (ch.kind === 'card') { const c = scoring.find((x) => x.id === o); return `<button class="choice-opt" data-pick="${o}" style="--suit:${SUIT_COLOR[c.suit]}"><b>${cardName(c)}</b> ${data.classes[CLASS_OF[c.suit]].name}</button>`; }
       const b = data.bonuses[ch.cls][o];
       return `<button class="choice-opt" data-pick="${o}"><b>${b.name}</b> ${b.text}</button>`;
@@ -276,8 +309,15 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     if (mode !== 'choose') return;
     runAct(run, { type: 'choose', pick });
     $('choice').hidden = true;
-    if (st.phase === 'choose') showChoice();
+    if (st.phase === 'choose' && st.choice.kind !== 'hero') showChoice();
     else reveal();
+  }
+
+  function heroOutcome(h) {
+    const [how, i] = h.outcome.split(':');
+    const who = h.heroes[Number(i)];
+    if (h.own || how === 'level') return `<b class="herotext">${data.heroes[who].name} levels up to Lv ${h.levels[who]}!</b> The hand was free.`;
+    return `<b class="herotext">${data.heroes[h.cls].name} joins your army!</b> The hero they replaced is now a Legendary Ace in your deck. The hand was free.`;
   }
 
   function reveal() {
@@ -285,7 +325,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     const L = st.last;
     const u = L.unit;
     reveals++;
-    lastReveal = { hand: L.hand, score: L.score, tier: L.tier, rarity: u.rarity, upChance: +(rarityOdds(data, L.score, luck()).odds.slice(L.tier + 1).reduce((a, b) => a + b, 0)).toFixed(3), rankedUp: u.rarity > L.tier, unit: `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}` };
+    lastReveal = { hand: L.hand, score: L.score, tier: L.tier, rarity: u.rarity, upChance: +(rarityOdds(data, L.score, luck()).odds.slice(L.tier + 1).reduce((a, b) => a + b, 0)).toFixed(3), rankedUp: u.rarity > L.tier, hero: L.hero ? L.hero.cls : null, unit: `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}` };
     setMode('reveal');
     const R = data.reveal;
     const rv = $('rv-cards');
@@ -406,16 +446,25 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
       { at: tLand, fn: () => {
         rv.innerHTML = '';
         const army = armyForFight(st);
-        const idx = army.units.indexOf(u);
-        const fu = createFight(data, army, st.roundIndex, 0).units.find((x) => x.id === `p${idx}`);
-        const el = unitCard(fu, unitPower(data, army, st.roundIndex, idx));
+        let el;
+        if (L.hero) {
+          const fh = createFight(data, { ...army, heroes: [L.hero.cls, ...army.heroes.filter((h) => h !== L.hero.cls)].slice(0, 2) }, st.roundIndex, 0).units.find((x) => x.id === 'h0');
+          el = unitCard(fh);
+          el.classList.add('herobirth');
+          flash('#ffd35a', 0.8);
+        } else {
+          const idx = army.units.indexOf(u);
+          const fu = createFight(data, army, st.roundIndex, 0).units.find((x) => x.id === `p${idx}`);
+          el = unitCard(fu, unitPower(data, army, st.roundIndex, idx));
+        }
         el.classList.add('born');
         $('rv-newborn').appendChild(el);
         if (high) flash(RARITY_HEX[u.rarity], u.rarity === 4 ? 0.7 : 0.45);
         audio.land(u.rarity);
+        if (L.hero) { $('rv-tier').textContent = 'HERO!'; $('rv-tier').className = 'rar-legendary up pop'; $('rv-unit').innerHTML = L.hero.own || st.phase !== 'choose' ? heroOutcome(L.hero) : `<b class="herotext">${data.heroes[L.hero.cls].name} answers the call!</b> The hand was free.`; return; }
         $('rv-unit').innerHTML = `${data.classes[u.cls].mechanic}${u.bonus ? ` + bonus <b class="bonusname">${data.bonuses[u.cls][u.bonus].name}</b>: ${data.bonuses[u.cls][u.bonus].text}` : ' (number card: no bonus)'}`;
       } },
-      { at: tLand + R.settle, fn: join },
+      { at: tLand + R.settle, fn: () => { if (st.phase === 'choose' && st.choice.kind === 'hero') showChoice(); else join(); } },
     ];
     startTimeline(steps, null);
   }
@@ -437,7 +486,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     setMode('hop');
     audio.hop();
     drawBoard();
-    cardEls.get(`p${st.kept.length + st.army.length - 1}`)?.classList.add('born');
+    if (!st.last?.hero) cardEls.get(`p${st.kept.length + st.army.length - 1}`)?.classList.add('born');
     $('army').classList.remove('bump');
     void $('army').offsetWidth;
     $('army').classList.add('bump');
@@ -454,11 +503,43 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     drawBoard();
     hudEl.classList.add('fighting');
     fightAcc = 0;
+    $('fight-log').hidden = false;
+    logStart();
     setMode('fight');
   }
   const unitOf = (id) => fight.units.find((u) => u.id === id);
+  // A readable log of what matters in the fight.
+  const nameOf = (id) => { const u = unitOf(id); if (!u) return id; return u.side === 'e' ? u.name : u.hero ? u.name : `${rankLabel(u.rank)}${SUIT_SYMBOL[u.suit]} ${data.classes[u.cls].name}`; };
+  function logLine(html, cls = '') {
+    const el = $('fight-log');
+    const row = document.createElement('div');
+    row.className = cls;
+    row.innerHTML = `<i>${fight.time.toFixed(1)}s</i> ${html}`;
+    el.prepend(row);
+    while (el.children.length > 14) el.lastChild.remove();
+  }
+  function logStart() {
+    $('fight-log').innerHTML = '';
+    const mine = fight.units.filter((u) => u.side === 'p');
+    const notes = [];
+    const armor = mine.find((u) => u.cls !== 'knight')?.armor ?? 0;
+    if (armor > 0) notes.push(`every ally has at least ${armor.toFixed(1)} Armor (Ortha / Chivalry)`);
+    const sh = mine[0]?.shield ?? 0;
+    if (sh > 0) notes.push(`every ally starts with a ${Math.round(sh)} Shield (Guardian / Morning Prayer)`);
+    for (const u of mine) if (u.banner) notes.push(`${nameOf(u.id)}'s Banner: ${data.classes[u.cls].name}s hit ${Math.round(u.banner * 100)}% harder`);
+    if (notes.length) logLine(`<b>Before the first blow:</b> ${notes.join('; ')}.`, 'note');
+  }
   function handleEvent(ev, quiet) {
     if (ev.type === 'end') return;
+    if (!quiet) {
+      const side = (id) => unitOf(id)?.side === 'p' ? 'me' : 'foe';
+      if (ev.type === 'down') logLine(`<b>${nameOf(ev.who)}</b> falls to ${nameOf(ev.by)}`, side(ev.who) === 'me' ? 'bad' : 'good');
+      else if (ev.type === 'attack' && ev.crit) logLine(`${nameOf(ev.who)} <b>crits</b> ${nameOf(ev.target)} for ${ev.hits[0]?.[1] ?? ''}`, side(ev.who) === 'me' ? 'good' : 'bad');
+      else if (ev.type === 'attack' && ev.hits.length > 1) logLine(`${nameOf(ev.who)} splashes ${ev.hits.length} enemies`, side(ev.who) === 'me' ? 'good' : 'bad');
+      else if (ev.type === 'jump') logLine(`Burn jumps from ${nameOf(ev.who)} to ${nameOf(ev.target)} (Vey)`, 'good');
+      else if (ev.type === 'thorn') logLine(`${nameOf(ev.who)}'s broken Shield hits ${nameOf(ev.target)} back for ${ev.amount}`, side(ev.who) === 'me' ? 'good' : 'bad');
+      else if (ev.type === 'shield' && side(ev.who) === 'me' && ev.amount >= 20) logLine(`${nameOf(ev.who)} shields ${nameOf(ev.target)} for ${ev.amount}${ev.heal ? ` and heals ${ev.heal}` : ''}`, 'good');
+    }
     if (ev.type === 'down') { cardEls.get(ev.who)?.classList.add('down'); if (!quiet) audio.down(); return; }
     if (quiet) return;
     if (ev.type === 'dot') { floater(ev.target, `-${ev.amount}`, ev.burn ? 'burn' : 'poison'); return; }
@@ -522,6 +603,8 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     const desc = t.hero ? `${t.name} (hero)` : `${RARITY_NAME[t.rarity]} ${rankLabel(t.rank)}${SUIT_SYMBOL[t.suit]} ${data.classes[t.cls].name}`;
     $('sq-mvp').innerHTML = `Carried by <b>${desc}</b>: ${Math.round((100 * (t.dealt + t.healed)) / tot)}% of your army's work · ${fight.time.toFixed(1)} s${timeout ? ' (time ran out: decided on health left)' : ''}${fight.result === 'lose' ? '<br><b>The run is over.</b>' : `<br>Gold: win ${data.gold.win} + unused discards ${st.discardsLeft}${run.bounties.filter((b) => bountyMet(data, b, st, fight)).map((b) => ` + bounty ${b.gold}`).join('')}`}`;
     drawBoard();
+    const rows = mine.slice().sort((a, b) => b.dealt + b.healed - (a.dealt + a.healed)).slice(0, 6);
+    $('sq-mvp').innerHTML += `<table class="dmg">${rows.map((u) => `<tr><td>${nameOf(u.id)}${u.traits?.length ? ` <small>${u.traits.map((t) => data.traits[t].name).join('+')}</small>` : ''}</td><td>${Math.round(u.dealt)} dmg</td><td>${u.healed ? `${Math.round(u.healed)} shield` : ''}</td><td><i style="width:${Math.round((100 * (u.dealt + u.healed)) / tot)}px"></i></td></tr>`).join('')}</table>`;
     $('sq-end').hidden = false;
     if (fight.result === 'win') audio.win(); else audio.lose();
   }
@@ -569,7 +652,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     setMode('shop');
     $('shop').hidden = false;
     $('rite').hidden = true;
-    $('shop-gold').textContent = run.gold;
+    $('shop-gold').textContent = `${run.gold} (incl. +${data.gold.beforeShop} shop stipend)`;
     $('shop-items').innerHTML = run.shop.items.map((it) => {
       const [name, text] = itemText(it);
       return `<button class="shop-item shelf-${it.shelf}${it.sold ? ' sold' : ''}" data-slot="${it.slot}" ${it.sold || it.price > run.gold ? 'disabled' : ''}><span class="tag">${SHELF[it.shelf]}</span><b>${name}</b><span>${text}</span><span class="price">${it.sold ? 'bought' : `${it.price}g`}</span></button>`;
@@ -636,6 +719,19 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     $('ro-sum').innerHTML = `${run.history.map((h) => `R${h.round} ${h.result === 'win' ? '✔' : '✘'}`).join(' · ')}<br>Heroes: ${run.heroes.map((h) => data.heroes[h].name).join(' + ')} · kept ${run.kept.length} units · relics: ${run.relics.map((k) => data.relics[k].name).join(', ') || 'none'} · talents: ${run.talents.map((k) => data.talents[k].name).join(', ') || 'none'} · gold left ${run.gold}`;
     if (run.won) audio.win(); else audio.lose();
   }
+
+  // Hover tooltips: any element with data-tip.
+  const tip = $('tip');
+  hudEl.onmouseover = (e) => {
+    const el = e.target.closest('[data-tip]');
+    if (!el) { tip.hidden = true; return; }
+    tip.innerHTML = el.dataset.tip;
+    tip.hidden = false;
+    const r = el.getBoundingClientRect();
+    tip.style.left = `${Math.min(innerWidth - 300, Math.max(4, r.left))}px`;
+    tip.style.top = `${r.bottom + 6 + 160 > innerHeight ? r.top - 6 - tip.offsetHeight : r.bottom + 6}px`;
+  };
+  hudEl.onmouseleave = () => { tip.hidden = true; };
 
   drawHeroPick();
   setMode('heroes');

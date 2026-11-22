@@ -49,7 +49,7 @@ const pick = (rng, list) => list[Math.floor(rng() * list.length)];
 export function createRun(data, seed, opts = {}) {
   const run = {
     data, seed, rng: makeRng((seed ^ 0x9e3779b9) >>> 0), rule: opts.rule ?? data.returnRule, top: opts.top ?? [],
-    heroes: null, relics: (opts.relics ?? []).slice(), talents: [], doctrines: {}, kept: [], deck: standardDeck(),
+    heroes: null, heroLevels: {}, relics: (opts.relics ?? []).slice(), talents: [], doctrines: {}, kept: [], deck: standardDeck(),
     gold: opts.gold ?? 0, roundIndex: 0, round: null, phase: 'heroes', bounties: [], shop: null, rite: null,
     lastFight: null, lastPay: null, history: [], log: [], won: false, bought: [],
   };
@@ -113,7 +113,7 @@ export function bountyMet(data, b, st, fight) {
 function startRound(run) {
   run.round = createRound(run.data, roundSeed(run.seed, run.roundIndex), {
     deck: run.deck, roundIndex: run.roundIndex, heroes: run.heroes, kept: run.kept, relics: run.relics,
-    talents: run.talents, doctrines: run.doctrines, top: run.roundIndex === 0 ? run.top : [],
+    talents: run.talents, doctrines: run.doctrines, heroLevels: run.heroLevels, top: run.roundIndex === 0 ? run.top : [],
   });
   postBounties(run);
   run.phase = 'round';
@@ -141,6 +141,7 @@ function stockShop(run) {
 }
 
 function openShop(run) {
+  run.gold += run.data.gold.beforeShop;
   run.shop = { items: stockShop(run), rerolls: 0, rerollPrice: run.data.shop.reroll };
   run.phase = 'shop';
 }
@@ -186,6 +187,7 @@ export function runAct(run, a) {
     if (run.phase !== 'heroes') throw new Error('heroes already picked');
     if (a.picks.length !== 2 || a.picks[0] === a.picks[1] || !a.picks.every((k) => data.heroes[k])) throw new Error(`pick two different heroes: ${a.picks}`);
     run.heroes = a.picks.slice();
+    for (const h of run.heroes) run.heroLevels[h] = 1;
     startRound(run);
   } else if (a.type === 'play' || a.type === 'discard' || a.type === 'choose') {
     if (run.phase !== 'round') throw new Error(`no round to play (phase ${run.phase})`);
@@ -195,6 +197,13 @@ export function runAct(run, a) {
     if (run.phase !== 'round' || st.phase !== 'fight') throw new Error('no fight to resolve');
     const f = st.fight;
     while (!f.result) stepFight(data, f);
+    // A hero that was swapped out joins the deck as a Legendary Ace of its suit.
+    const SUIT = { knight: 'S', priestess: 'H', witch: 'C', rogue: 'D' };
+    for (const [k, old] of st.retired.entries()) {
+      const i = pickLowest(run.deck, new Set(), () => true);
+      run.deck = run.deck.slice();
+      run.deck[i] = { id: `hero-${old}-${run.roundIndex}-${k}`, rank: 14, suit: SUIT[data.heroes[old].cls], bonus: data.birth.returnChips[4], rarity: 4 };
+    }
     const last = run.roundIndex === data.run.rounds - 1;
     const won = f.result === 'win';
     if (last && won) run.won = true;
@@ -205,7 +214,7 @@ export function runAct(run, a) {
     run.gold += pay.total;
     run.lastPay = pay;
     run.lastFight = { result: f.result, time: f.time };
-    run.history.push({ round: run.roundIndex + 1, result: f.result, time: f.time, timeout: f.events.at(-1).timeout, hands: st.log.filter((l) => l.type === 'play').map((l) => l.hand), scores: st.log.filter((l) => l.type === 'play').map((l) => l.score), rarities: st.army.map((u) => u.rarity), units: st.army.slice(), kept: run.kept.slice(), relics: run.relics.slice(), talents: run.talents.slice(), doctrines: { ...run.doctrines }, discards: st.log.filter((l) => l.type === 'discard').length, fight: f, pay, bountiesMet: pay.bounties.length, gold: run.gold });
+    run.history.push({ heroEvents: st.log.filter((l) => l.type === 'hero').length, heroes: run.heroes.slice(), round: run.roundIndex + 1, result: f.result, time: f.time, timeout: f.events.at(-1).timeout, hands: st.log.filter((l) => l.type === 'play').map((l) => l.hand), scores: st.log.filter((l) => l.type === 'play').map((l) => l.score), rarities: st.army.map((u) => u.rarity), units: st.army.slice(), kept: run.kept.slice(), relics: run.relics.slice(), talents: run.talents.slice(), doctrines: { ...run.doctrines }, discards: st.log.filter((l) => l.type === 'discard').length, fight: f, pay, bountiesMet: pay.bounties.length, gold: run.gold });
     run.phase = !won || last ? 'over' : 'keep';
   } else if (a.type === 'keep') {
     if (run.phase !== 'keep') throw new Error('nothing to keep');

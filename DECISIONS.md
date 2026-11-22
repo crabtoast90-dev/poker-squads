@@ -67,3 +67,12 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - Bounties are paid only after a win (a loss ends the run). "Two {suit} units" picks a suit your heroes don't use 70% of the time. *(my call)*
 - Skeleton curve redone for "one loss ends the run": round 1 is gentle (0.6) and it climbs to 3.2 by round 8, at 2.95x overall; set once so greedy clears ~24%. *(my call, placeholder)*
 - Review fixes *(my call)*: Kindled Blades is 1.5x on top of Shade Corvin's triple (it did nothing with him); the power number now counts the fight-time talents; the shop's power readout no longer double-counts the kept unit. Not changed (Brian's spec): the 'Score 300+ with a pair or a high card' bounty is almost never met (1 in 338 offers), impossible in round 1.
+
+## 2026-11-22 (Brian's notes after the decision-depth pass)
+- Brian: traits and hero skills must be readable (hover), and the fight must be followable. Built: hover tooltips on every unit, hero, relic, talent and doctrine (class mechanic in words, bonuses, trait and its source hand and doctrine level, health, hit size, speed, Armor, starting Shield); hero cards show level and skill; a fight log (crits, kills, splashes, Burn jumps, big Shields, thorns, plus the pre-fight auras); a damage table on the result panel.
+- Brian: +10 gold before each shop. Built as stated (purchases rise to ~3.5 a shop; not re-priced).
+- Brian: heroes level up or get replaced by heroes from high-tier hands. Built from the original brief's hero events: a hand can birth a hero event instead of a unit (the hand is free); class from the card it copied; own that hero = it levels up; otherwise swap it in (the one leaving becomes a Legendary Ace of its suit in the deck) or level one of yours.
+- Hero event chance by the hand's final rarity: Common 0%, Uncommon 3%, Rare 7%, Epic 20%, Legendary 40%; at most 2 a round. A hero level = +30% power. A hero who comes back keeps their old level. Talents only work while their hero is in the army. The pre-play panel shows the hand's hero chance. *(my call)*
+- The hero swap / level choice comes after the reveal (the reveal plays "HERO!" with the hero's card), unlike the relic choices, which come before. *(my call)*
+- Skeletons 3.3x overall (from 2.95) to offset the +10 gold and hero levels. *(my call)*
+- Brian's note on bounties ("generic enough that I hit 2 or 3 playing as if they didn't exist") is open: options offered, nothing built.

@@ -96,6 +96,11 @@ export const SQUADS = {
     rogue: { name: 'Shade Corvin', cls: 'rogue', power: 2.2, skill: 'Rogue crits hit for triple; a Rogue that gets a kill attacks again at once', critMult: 3 },
   },
   startHeroes: ['knight', 'witch'], // the default pair (bots and the check)
+  // Hero events (Brian's brief): a high-tier hand can birth a hero event instead of a unit; that
+  // hand is free. Its class comes from the card the hand copied. Own that hero: it levels up.
+  // Don't: swap it in for one of yours (the one leaving becomes a Legendary Ace of its suit in
+  // the deck) or level one of yours instead. Chance by the hand's final rarity. *(my call on numbers)*
+  heroEvents: { chance: [0, 0.03, 0.07, 0.2, 0.4], perLevel: 0.3, maxPerRound: 2 },
 
   // ---- Relics: bought in the shop (2 on the shelf; one always matches a hero you run). ----
   relics: {
@@ -133,7 +138,7 @@ export const SQUADS = {
   doctrine: { chips: 10, mult: 1, traitPerLevel: 0.5 },
 
   // ---- Gold and bounties ----
-  gold: { win: 4, perDiscard: 1 }, // plus bounties; Blood Money pays 1 per Rogue kill
+  gold: { win: 4, perDiscard: 1, beforeShop: 10 }, // plus bounties; Blood Money pays 1 per Rogue kill; +10 before each shop (Brian)
   // 3 bounties a round; pay x (1 + perRound x round). *(my call on the numbers)*
   bounties: {
     perRound: 0.15, offered: 3, offSuitLean: 0.7,
@@ -208,7 +213,7 @@ export const SQUADS = {
     tick: 0.1, // seconds per sim step
     damageScale: 1.5, // every hit, Burn, Shield x this: sets fight length
     damagePerRound: 0.1, // ...plus 10% per round, so bigger late armies still finish near 20 s
-    enemyPower: 2.95, // every skeleton's power x this (on top of the round's power); set by hand so greedy clears ~30% *(placeholder)*
+    enemyPower: 3.3, // every skeleton's power x this (on top of the round's power); set by hand so greedy clears ~30% *(placeholder)*
     maxTime: 60, // still going at 60 s: the side with more health left (by share) wins
     spread: 0.3, // each hit rolls x (1 ± spread): fights are a slope, not a cliff
     rows: { front: 1.6, back: 4.2 }, // distance from the middle line, metres

@@ -39,7 +39,7 @@ function fighter(data, id, side, o, ctx) {
   const mech = tr('devout') ? 1 + T.devout.mech * tk : 1;
   const u = {
     id, side, cls: o.cls, row: c.row, name: o.name, hero: !!o.hero, rank: o.rank, suit: o.suit, rarity: o.rarity,
-    power: P, bonus: o.bonus ?? null, bonuses, traits, hand: o.hand ?? null, kept: !!o.kept,
+    power: P, bonus: o.bonus ?? null, bonuses, traits, hand: o.hand ?? null, kept: !!o.kept, level: o.level ?? null,
     maxHp: H(c.hp * P * (o.hpMult ?? 1) * statMult * (tr('sturdy') ? 1 + T.sturdy.hp * tk : 1)), shield: 0, alive: true,
     atk: c.atk * ds * P * (o.atkMult ?? 1) * statMult, interval: c.interval / (tr('swift') ? 1 + T.swift.speed * tk : 1), range: c.range, speed: c.speed,
     armor: 0, crit: 0, critMult: 2, burn: 0, burnFor: 0, shieldAmt: 0, shieldEvery: 0,
@@ -91,11 +91,14 @@ function armyAuras(data, list, ctx) {
 export function createFight(data, army, roundIndex, seed) {
   // Damage grows each round so bigger late armies still finish in about 20 s.
   const ds = data.fight.damageScale * (1 + data.fight.damagePerRound * roundIndex);
-  const ctx = { heroes: army.heroes, relics: army.relics ?? [], talents: army.talents ?? [], doctrines: army.doctrines ?? {}, ds };
+  // Talents only work while their hero is in the army (a swapped-out hero takes them along).
+  const talents = (army.talents ?? []).filter((k) => army.heroes.includes(data.talents[k].hero));
+  const ctx = { heroes: army.heroes, relics: army.relics ?? [], talents, doctrines: army.doctrines ?? {}, ds };
   const mine = [];
   army.heroes.forEach((key, s) => {
     const h = data.heroes[key];
-    mine.push(fighter(data, `h${s}`, 'p', { cls: h.cls, name: h.name, hero: true, power: h.power }, ctx));
+    const level = army.heroLevels?.[key] ?? 1;
+    mine.push(fighter(data, `h${s}`, 'p', { cls: h.cls, name: h.name, hero: true, level, power: h.power * (1 + data.heroEvents.perLevel * (level - 1)) }, ctx));
   });
   army.units.forEach((u, i) => mine.push(fighter(data, `p${i}`, 'p', u, ctx)));
   armyAuras(data, mine, ctx);

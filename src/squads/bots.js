@@ -57,6 +57,12 @@ function makeBot({ classes, favour }) {
     if (st.phase === 'fight') return { type: 'resolve' };
     if (st.phase === 'choose') {
       const ch = st.choice;
+      if (ch.kind === 'hero' && classes) {
+        const all = [...st.kept, ...st.army];
+        const count = (cls) => all.filter((u) => u.cls === cls).length;
+        const best = [0, 1].sort((a, b) => count(run.heroes[b]) - count(run.heroes[a]))[0];
+        return { type: 'choose', pick: `level:${best}` };
+      }
       if (ch.kind === 'card' && classes) return { type: 'choose', pick: st.pending.ev.scoring.find((c) => fav.includes(CLASS_OF[c.suit]))?.id ?? ch.options[0] };
       return { type: 'choose', pick: ch.options[0] };
     }

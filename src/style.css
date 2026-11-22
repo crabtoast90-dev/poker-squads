@@ -316,3 +316,19 @@ body.fighting #bottom { display: none; }
 .rite-card.sel { outline: 3px solid #f4d58d; translate: 0 -8px; }
 .rite-card.sel::after { content: attr(data-order); position: absolute; top: -8px; left: -6px; background: #f4d58d; color: #222; border-radius: 50%; width: 18px; height: 18px; font: 800 12px system-ui; display: grid; place-items: center; }
 .hud[data-mode='shop'] #bottom, .hud[data-mode='rite'] #bottom { display: none; }
+
+/* ---- readability + hero events ---- */
+#tip { position: fixed; z-index: 20; max-width: 300px; background: #0b0d18f2; border: 1px solid #f4d58d; border-radius: 6px; padding: 7px 9px; font-size: 12px; line-height: 1.35; pointer-events: none; }
+#tip b { color: #f4d58d; }
+[data-tip] { cursor: help; }
+.ucard .skill { font-size: 9.5px; line-height: 1.15; color: #5a4400; }
+.ucard.hero { width: 130px; }
+#fight-log { position: absolute; right: 10px; top: 120px; width: 290px; max-height: 50vh; overflow: hidden; font-size: 12px; display: flex; flex-direction: column; gap: 2px; z-index: 3; }
+#fight-log i { opacity: 0.5; font-style: normal; margin-right: 4px; }
+#fight-log .good b { color: #7dff9a; } #fight-log .bad b { color: #ff9a8a; } #fight-log .note { color: #f4d58d; }
+table.dmg { margin: 8px auto 0; font-size: 12px; border-collapse: collapse; }
+table.dmg td { padding: 1px 6px; text-align: left; }
+table.dmg i { display: block; height: 8px; background: #ffd35a; border-radius: 3px; }
+.herochance { color: #ffd35a; font-weight: 700; margin-left: 6px; }
+.herobirth { box-shadow: 0 0 0 4px #ffd35a, 0 0 30px #ffd35a !important; }
+.herotext { color: #ffd35a; }

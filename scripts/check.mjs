@@ -130,7 +130,7 @@ async function playRun(page, name, { shots = true, watchFirstFight = false, firs
       for (let k = 0; k < 400 && !s.fight.result; k++) {
         await advance(page, 250);
         s = await sq(page);
-        if (!shotMid && s.fight.time > 8) { shotMid = true; if (shots) await shot(page, name, 'fight-mid'); }
+        if (!shotMid && s.fight.time > 4) { shotMid = true; if (shots) await shot(page, name, 'fight-mid'); }
       }
       fights++;
       continue;
@@ -186,6 +186,16 @@ async function aces(page, name) {
 }
 
 const RELIC_HOOK = 'pokerPair,pokerFace,pokerLuck';
+const HERO_TUNE = 'heroEvents.chance.0:1,heroEvents.chance.1:1,heroEvents.chance.2:1';
+await run('laptop-hero-events', async (page) => {
+  await advance(page, 200);
+  const seen = { hero: false };
+  await playRun(page, 'laptop-hero-events', { shots: true });
+  const s = await sq(page);
+  await compare(page, 'laptop-hero-events', applyTune(SQUADS, HERO_TUNE));
+  summaries.push(`[laptop-hero-events] hero choices shown ${s.choicesShown}; heroes at the end: ${await page.evaluate(() => document.getElementById('heroes-line')?.textContent)}`);
+  if (!s.choicesShown) failures.push('[laptop-hero-events] the hero swap / level choice never appeared');
+}, `&mode=squads&tune=${HERO_TUNE}`);
 await run('laptop', (page) => walk(page, 'laptop'));
 await run('laptop-relic-choices', async (page) => {
   await advance(page, 200);

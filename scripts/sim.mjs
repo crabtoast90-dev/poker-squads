@@ -134,6 +134,7 @@ const revealSec = (R.gather + R.count + R.rollBase + R.luck + R.luckResult + R.p
 const roundMin = (x) => (x.hands.length * (P.thinkPerHand + revealSec) + x.discards * P.thinkPerDiscard + P.preFight + x.time + P.postFight + P.keep + (x.result === 'win' ? P.relic : 0)) / 60;
 const runMin = avg(g.filter((r) => r.won).map((r) => r.history.reduce((s, x) => s + roundMin(x), 0)));
 
+const heroRate = (rs) => avg(rs.flatMap((r) => r.history.map((x) => x.heroEvents)));
 const shopRate = (rs) => rs.reduce((n, r) => n + r.bought.length, 0) / (rs.reduce((n, r) => n + r.history.filter((x) => x.result === 'win' && x.round < D.run.rounds).length, 0) || 1);
 const verdicts = [
   ['Greedy bot clears the run', `${T.greedyClear.min}-${T.greedyClear.max}%`, pct(gClear), gClear >= T.greedyClear.min && gClear <= T.greedyClear.max],
@@ -152,7 +153,7 @@ const verdicts = [
   ['Highest-scoring hand is also the best play', 'clearly below before', `${pct(choiceSample.now)} (was ${pct(choiceSample.before)})`, choiceSample.now <= choiceSample.before - 10],
   ['Purchases per shop (greedy / class-aware)', `${T.purchasesPerShop.min}-${T.purchasesPerShop.max}`, `${shopRate(g).toFixed(1)} / ${shopRate(runs.classAware).toFixed(1)}`, [g, runs.classAware].every((rs) => shopRate(rs) >= T.purchasesPerShop.min && shopRate(rs) <= T.purchasesPerShop.max)],
   ['Bounties met per round without chasing them (greedy)', `${T.bountiesPerRound.min}-${T.bountiesPerRound.max}`, avg(g.flatMap((r) => r.history.map((x) => x.bountiesMet))).toFixed(2), (() => { const v = avg(g.flatMap((r) => r.history.map((x) => x.bountiesMet))); return v >= T.bountiesPerRound.min && v <= T.bountiesPerRound.max; })()],
-  ['Hero events per round', `${T.heroEventsPerRound.min}-${T.heroEventsPerRound.max}`, 'not built (cut from this pass)', null],
+  ['Hero events per round (greedy / class-aware)', `${T.heroEventsPerRound.min}-${T.heroEventsPerRound.max}`, `${heroRate(g).toFixed(2)} / ${heroRate(runs.classAware).toFixed(2)}`, heroRate(g) >= T.heroEventsPerRound.min && heroRate(g) <= T.heroEventsPerRound.max],
 ];
 const passed0 = 0;
 const passed = verdicts.filter((v) => v[3] === true).length;

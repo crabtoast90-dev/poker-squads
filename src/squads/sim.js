@@ -83,6 +83,7 @@ export function createRound(data, seed, opts = {}) {
     roundIndex: opts.roundIndex ?? 0,
     heroes: opts.heroes ?? data.startHeroes.slice(),
     kept: (opts.kept ?? []).slice(), relics, talents: (opts.talents ?? []).slice(), doctrines: { ...(opts.doctrines ?? {}) },
+    heroLevels: opts.heroLevels ?? {}, retired: [],
     draw: shuffle(rng, deck), used: [], hand: [],
     handsLeft: data.round.hands,
     discardsLeft: data.round.discards + (relics.includes('pokerDiscard') ? data.relics.pokerDiscard.discards : 0),
@@ -164,7 +165,52 @@ function continueBirth(st) {
   }
   if (b.bonusPending) return;
   rollVeteran(st);
+  if (rollHeroEvent(st)) return;
   finishBirth(st);
+}
+
+// Hero event: a strong hand can birth a hero instead of a unit (the hand is given back).
+function rollHeroEvent(st) {
+  const { data } = st;
+  const b = st.pending;
+  if (b.heroRolled) return false;
+  b.heroRolled = true;
+  if (st.rng() >= data.heroEvents.chance[b.rarity]) return false;
+  if (st.log.filter((l) => l.type === 'hero').length >= data.heroEvents.maxPerRound) return false;
+  const cls = CLASS_OF[b.card.suit];
+  st.handsLeft++;
+  b.hero = { cls, own: st.heroes.includes(cls) };
+  if (b.hero.own) { levelHero(st, cls); finishHeroEvent(st, `level:${st.heroes.indexOf(cls)}`); return true; }
+  st.choice = { kind: 'hero', cls, options: ['level:0', 'level:1', 'swap:0', 'swap:1'] };
+  st.phase = 'choose';
+  // What the reveal shows while the player decides.
+  st.last = { ...b.ev, scoring: b.ev.scoring.map((c) => c.id), played: b.played, unit: makeUnit(data, b.card, b.rarity, 'pending'), pick: b.ev.scoring.indexOf(b.card), roll: b.roll, tier: b.tier, chosen: b.chosen ?? null, hero: { ...b.hero, outcome: null } };
+  return true;
+}
+const levelHero = (st, key) => { st.heroLevels[key] = (st.heroLevels[key] ?? 1) + 1; };
+
+function finishHeroEvent(st, outcome) {
+  const { data } = st;
+  const b = st.pending;
+  const [how, i] = outcome.split(':');
+  const slot = Number(i);
+  if (!b.hero.own) {
+    if (how === 'swap') {
+      const old = st.heroes[slot];
+      st.heroes[slot] = b.hero.cls;
+      st.heroLevels[b.hero.cls] = st.heroLevels[b.hero.cls] ?? 1;
+      st.retired.push(old);
+    } else levelHero(st, st.heroes[slot]);
+  }
+  const unit = makeUnit(data, b.card, b.rarity, `${st.roundIndex}_h${st.born}`, b.bonus, b.ev.hand, b.bonus2 ?? null);
+  b.hero.outcome = outcome;
+  b.hero.levels = { ...st.heroLevels };
+  b.hero.heroes = st.heroes.slice();
+  st.last = { ...b.ev, scoring: b.ev.scoring.map((c) => c.id), played: b.played, unit, pick: b.ev.scoring.indexOf(b.card), roll: b.roll, tier: b.tier, chosen: b.chosen ?? null, hero: b.hero };
+  st.log.push({ type: 'hero', hand: b.ev.hand, score: b.ev.score, cls: b.hero.cls, outcome, heroes: st.heroes.slice() });
+  st.pending = null;
+  st.choice = null;
+  st.phase = 'play';
 }
 
 // Veteran (two pair): rolls a class bonus; a face card, which already has one, rolls a second.
@@ -220,16 +266,17 @@ export function act(st, a) {
     st.choice = null;
     st.phase = 'play';
     const b = st.pending;
+    if (ch.kind === 'hero') { finishHeroEvent(st, a.pick); return st; }
     if (ch.kind === 'card') { b.card = b.ev.scoring.find((c) => c.id === a.pick); b.cardChosen = true; b.chosen = 'card'; }
     else { b.bonus = a.pick; b.bonusPending = false; b.chosen = 'bonus'; }
     if (b.bonusPending) return st;
-    if (ch.kind === 'bonus') { rollVeteran(st); finishBirth(st); }
+    if (ch.kind === 'bonus') { rollVeteran(st); if (!rollHeroEvent(st)) finishBirth(st); }
     else continueBirth(st);
   } else throw new Error(`unknown action ${a.type}`);
   return st;
 }
 
-export const armyForFight = (st) => ({ heroes: st.heroes, units: [...st.kept, ...st.army], relics: st.relics, talents: st.talents, doctrines: st.doctrines });
+export const armyForFight = (st) => ({ heroes: st.heroes, heroLevels: st.heroLevels, units: [...st.kept, ...st.army], relics: st.relics, talents: st.talents, doctrines: st.doctrines });
 export const fightSeed = (st) => (st.seed * 7919 + st.roundIndex * 104729 + 17) >>> 0;
 
 // Fingerprint of the hands and births of a round (the fight has its own).

@@ -25,6 +25,9 @@ Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.
 ## Next: decisions between hands
 - [x] **D2. Decision-depth pass.** Hand traits, bounties, gold, the shop (rites, doctrines, hero talents, relics, reroll); free relic pick and lives removed (a loss ends the run).
 - [ ] **D3. Hand choice barely moved.** The highest-scoring hand is still the best play 54% of the time (55% with traits off): trait value climbs with hand rank, so the best-scoring hand usually carries the best trait too. Ideas: make low-hand traits matter for specific classes (Swift Rogues, Sturdy Knights), bounties that pay for low hands, or rarity that depends less on raw score.
+- [x] **D5. Readability, shop stipend, hero events.** Tooltips everywhere, hero skills on cards, fight log + damage table; +10 gold before each shop; hero events (level up or swap; swapped-out hero becomes a Legendary Ace).
+- [ ] **D6. Bounties that change how you play.** Brian: they're met by accident. Waiting on his pick of a direction.
+- [ ] **B2 (hero events) is now built** as part of D5.
 - [ ] **D4. Fights got short.** All fights average 13 s (target 15-25 s): traits and shop power end fights fast.
 
 ## Lane A: the full 8-round run with deck return (A1 done in the classes pass)
