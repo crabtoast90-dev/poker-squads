@@ -76,3 +76,4 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - The hero swap / level choice comes after the reveal (the reveal plays "HERO!" with the hero's card), unlike the relic choices, which come before. *(my call)*
 - Skeletons 3.3x overall (from 2.95) to offset the +10 gold and hero levels. *(my call)*
 - Brian's note on bounties ("generic enough that I hit 2 or 3 playing as if they didn't exist") is open: options offered, nothing built.
+- Review fixes *(my call)*: a hero swapped back in within the same round no longer also becomes an Ace; the hero choice no longer replays the whole reveal; hero-event card ids are unique; the check now plays a run that swaps heroes. Known: with Royal Court, a face-bonus pick is thrown away if that hand turns into a hero event.

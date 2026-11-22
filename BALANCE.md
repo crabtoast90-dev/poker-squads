@@ -1,6 +1,6 @@
 # Balance report
 
-Written by `npm run sim` on 2026-11-22 04:53 UTC (32 s). Do not edit by hand. 300 seeded runs per bot; heroes Warden Ortha + Hexmother Vey; deck return rule "lowest".
+Written by `npm run sim` on 2026-11-22 05:03 UTC (31 s). Do not edit by hand. 300 seeded runs per bot; heroes Warden Ortha + Hexmother Vey; deck return rule "lowest".
 
 A lost fight ends the run. Skeleton strength, the round curve and shop prices were set by hand once (greedy near 25%, 2-3 buys a shop); no further tuning (prototype rule).
 

@@ -200,9 +200,11 @@ function finishHeroEvent(st, outcome) {
       st.heroes[slot] = b.hero.cls;
       st.heroLevels[b.hero.cls] = st.heroLevels[b.hero.cls] ?? 1;
       st.retired.push(old);
+      // A hero swapped back in this same round doesn't also become an Ace.
+      st.retired = st.retired.filter((h) => !st.heroes.includes(h));
     } else levelHero(st, st.heroes[slot]);
   }
-  const unit = makeUnit(data, b.card, b.rarity, `${st.roundIndex}_h${st.born}`, b.bonus, b.ev.hand, b.bonus2 ?? null);
+  const unit = makeUnit(data, b.card, b.rarity, `${st.roundIndex}_h${st.log.filter((l) => l.type === 'hero').length}`, b.bonus, b.ev.hand, b.bonus2 ?? null);
   b.hero.outcome = outcome;
   b.hero.levels = { ...st.heroLevels };
   b.hero.heroes = st.heroes.slice();

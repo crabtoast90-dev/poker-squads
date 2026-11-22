@@ -39,7 +39,10 @@ mkdirSync(OUT, { recursive: true });
 for (const old of readdirSync(RUNS).filter((f) => /^\d{4}-/.test(f)).sort().slice(0, -KEEP)) rmSync(join(RUNS, old), { recursive: true, force: true });
 
 const nodeRun = (data, opts = {}) => {
-  const r = runRun(data, SEED, greedy, data.returnRule, opts);
+  const { swap, ...runOpts } = opts;
+  // swap: answer every hero choice with 'swap:1' (the check's swap run does the same through the buttons).
+  const bot = swap ? (run) => { const a = greedy(run); return a.type === 'choose' && String(a.pick).startsWith('level:') ? { type: 'choose', pick: 'swap:1' } : a; } : greedy;
+  const r = runRun(data, SEED, bot, data.returnRule, runOpts);
   return { log: digest(r.log), history: digest(r.history.map((h) => [h.result, h.time, h.fight.events.length, digest(h.fight.events)])), won: r.won, rounds: r.history.length };
 };
 {
@@ -113,7 +116,7 @@ async function tap(page, a) {
 
 // Play the whole run with the page's bot. shots: screenshot the first time each screen appears.
 // watchFirstFight: play round 1's fight at 2x instead of skipping it.
-async function playRun(page, name, { shots = true, watchFirstFight = false, firstPlay = null } = {}) {
+async function playRun(page, name, { shots = true, watchFirstFight = false, firstPlay = null, heroSwap = false } = {}) {
   const seen = new Set();
   let fights = 0;
   for (let i = 0; i < 600; i++) {
@@ -122,6 +125,7 @@ async function playRun(page, name, { shots = true, watchFirstFight = false, firs
     let a = await page.evaluate(() => window.__game.bot());
     if (!a) { failures.push(`[${name}] no move on screen ${m}`); return; }
     if (firstPlay && a.type === 'play') { a = firstPlay; firstPlay = null; }
+    if (heroSwap && a.type === 'choose' && String(a.pick).startsWith('level:')) a = { type: 'choose', pick: 'swap:1' };
     if (shots && !seen.has(m)) { seen.add(m); await shot(page, name, `${String(seen.size).padStart(2, '0')}-${m}`); }
     if (a.type === 'skip' && watchFirstFight && fights === 0) {
       await page.click('#speed');
@@ -190,9 +194,9 @@ const HERO_TUNE = 'heroEvents.chance.0:1,heroEvents.chance.1:1,heroEvents.chance
 await run('laptop-hero-events', async (page) => {
   await advance(page, 200);
   const seen = { hero: false };
-  await playRun(page, 'laptop-hero-events', { shots: true });
+  await playRun(page, 'laptop-hero-events', { shots: true, heroSwap: true });
   const s = await sq(page);
-  await compare(page, 'laptop-hero-events', applyTune(SQUADS, HERO_TUNE));
+  await compare(page, 'laptop-hero-events', applyTune(SQUADS, HERO_TUNE), { swap: true });
   summaries.push(`[laptop-hero-events] hero choices shown ${s.choicesShown}; heroes at the end: ${await page.evaluate(() => document.getElementById('heroes-line')?.textContent)}`);
   if (!s.choicesShown) failures.push('[laptop-hero-events] the hero swap / level choice never appeared');
 }, `&mode=squads&tune=${HERO_TUNE}`);

@@ -307,8 +307,11 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
   }
   function choose(pick) {
     if (mode !== 'choose') return;
+    const wasHero = st.choice.kind === 'hero';
     runAct(run, { type: 'choose', pick });
     $('choice').hidden = true;
+    // A hero choice comes after the reveal: show the outcome and carry on (no second reveal).
+    if (wasHero) { $('rv-unit').innerHTML = heroOutcome(st.last.hero); return join(); }
     if (st.phase === 'choose' && st.choice.kind !== 'hero') showChoice();
     else reveal();
   }
