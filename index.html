@@ -14,8 +14,8 @@
       <p class="sub">Every poker hand you play is born as a soldier.</p>
       <div class="modes">
         <button class="mode" data-mode="squads" disabled>
-          <b>Play a round</b>
-          <span>Six hands become six units in Warden Ortha and Hexmother Vey's army. Beat the skeleton army's power, then watch the fight.</span>
+          <b>Start a run</b>
+          <span>Pick two heroes. Each round, six poker hands become six units; beat the skeleton army, keep one unit for good, and take a relic. Eight rounds, three lives.</span>
         </button>
       </div>
       <p id="loading">Loading…</p>
@@ -25,14 +25,24 @@
 
     <div id="sq-hud" class="hud" hidden>
       <div id="topbar">
-        <span>Round <b>1</b></span>
+        <span>Round <b id="round-no"></b></span>
+        <span class="lives" id="lives"></span>
         <span>Hands <b id="hands-left"></b></span>
         <span>Discards <b id="discards-left"></b></span>
-        <span>Units <b id="units-made"></b></span>
+        <span>New units <b id="units-made"></b></span>
         <button id="mute" title="Sound">🔊</button>
       </div>
+      <div id="runbar"><span id="heroes-line"></span><span id="relics"></span></div>
+
+      <div id="hero-pick" class="panel" hidden>
+        <h2>Pick your two heroes</h2>
+        <p class="hint">Each hero's skill boosts its own class, so the heroes you run decide your build.</p>
+        <div id="hero-opts"></div>
+        <button id="start-run" disabled>Start run</button>
+      </div>
+
       <div id="board">
-        <div class="sbox foes"><span class="sname">Skeleton army <b class="cp" id="cp-foes"></b></span><div class="ucards" id="foes-cards"></div></div>
+        <div class="sbox foes"><span class="sname">Skeleton army: <i id="foes-lean"></i> <b class="cp" id="cp-foes"></b></span><div class="ucards" id="foes-cards"></div></div>
         <div id="verdict"></div>
         <div class="sbox mine" id="army"><span class="sname">Your army <b class="cp" id="cp-mine"></b></span><div class="ucards" id="army-cards"></div></div>
       </div>
@@ -49,6 +59,7 @@
         </div>
         <div id="hand"></div>
         <div id="actions"><button id="discard">Discard</button><button id="play">Play hand</button></div>
+        <div id="choice" class="panel" hidden><div id="choice-title"></div><div id="choice-opts"></div></div>
         <div id="reveal" hidden>
           <div class="rv-row"><span id="rv-hand"></span><span id="rv-score"></span></div>
           <div id="rv-cards"></div>
@@ -63,7 +74,10 @@
 
       </div>
 
-      <div id="sq-end" class="end panel" hidden><div id="sq-result"></div><p id="sq-mvp"></p><button id="again">Play again</button></div>
+      <div id="sq-end" class="end panel" hidden><div id="sq-result"></div><p id="sq-mvp"></p><button id="continue">Continue</button></div>
+      <div id="keep" class="panel overlay" hidden><h2>Keep one for good</h2><p class="hint">It stays in your army every round. The other five become cards in your deck.</p><div id="keep-opts" class="ucards"></div></div>
+      <div id="relic" class="panel overlay" hidden><h2>Pick a relic</h2><p class="hint">Kept for the run. One always matches a hero you run.</p><div id="relic-opts"></div></div>
+      <div id="run-over" class="panel overlay" hidden><h2 id="ro-title"></h2><p id="ro-sum"></p><button id="new-run">New run</button><button id="again" hidden>Play again</button></div>
     </div>
 
     <button id="back" hidden>‹ Menu</button>

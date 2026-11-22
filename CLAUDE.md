@@ -10,14 +10,14 @@ A prototype that answers one question: is it fun to play poker hands that are bo
 The user (Brian) is a game designer, not a programmer: report in plain language, no code. He makes design, feel and look calls; you make every technical call. Log his calls in `DECISIONS.md`; log yours there too, marked *(my call)*.
 
 ## How it's built
-- **Sim first.** Rules live in `src/squads/` (pure, seeded, no three.js/DOM/`Math.random`/clock): `data.js` (every number, by name), `poker.js` (scorer), `sim.js` (deck, birth, round), `fight.js`, `bots.js`, `run.js` (whole run, sim only for now). `src/view/` and `src/main.js` only stage what the sim decided. Player input enters as actions (`play`, `discard`, `assign`).
+- **Sim first.** Rules live in `src/squads/` (pure, seeded, no three.js/DOM/`Math.random`/clock): `data.js` (every number, by name), `poker.js` (scorer), `sim.js` (deck, birth, round), `fight.js`, `bots.js`, `run.js` (the whole run: heroes, rounds, keep, relics), `power.js` (combat power). `src/view/` and `src/main.js` only stage what the sim decided. Player input enters as actions (`heroes`, `play`, `discard`, `choose`, `resolve`, `keep`, `relic`).
 - **Numbers** only in `src/squads/data.js`. Poker numbers come from `RESEARCH.md` with its confidence marks.
 - **`npm run sim`** rewrites `BALANCE.md` against Brian's targets (pass/fail). Quote the headline back. For tuning, offer three candidate sets that each hit every target; fix timing or structure before stats.
 - Stack: three.js (pinned), Vite, plain JS. Credit any asset in `CREDITS.md` the same day; never fetch art mid-session.
-- Test hooks: `?test` (manual clock, `__game.advance(ms)`), `?seed=N`, `?mode=squads`, `?tune=fight.enemyPower:3`, `?deck=S14,H14` (cards drawn first), `__game.state()/stateText()/bot()`.
+- Test hooks: `?test` (manual clock, `__game.advance(ms)`), `?seed=N`, `?mode=squads`, `?tune=fight.enemyPower:3`, `?deck=S14,H14` (cards drawn first), `?relics=pokerFace,pokerPair` (start holding relics), `__game.state()/stateText()/bot()`.
 
 ## Self-check
-`npm run check` (~15 s) plays the round through the real buttons on laptop (bot picks the moves; phone runs are off during the build-speed phase), screenshots the reveal stages and the fight, and fails on console errors, failed requests, a stuck screen, or a round/fight that differs from Node. `npm run check -- --url=https://crabtoast90-dev.github.io/poker-squads/` checks the live site; `--only=legendary` for quick iteration. Open the screenshots and say in one line what you see before merging.
+`npm run check` (~15 s) plays whole runs through the real buttons on laptop (bot picks the moves; phone runs are off during the build-speed phase), screenshots the reveal stages and the fight, and fails on console errors, failed requests, a stuck screen, or a round/fight that differs from Node. `npm run check -- --url=https://crabtoast90-dev.github.io/poker-squads/` checks the live site; `--only=legendary` for quick iteration. Open the screenshots and say in one line what you see before merging.
 
 ## Deploy and merge rule
 Every push to `main` deploys: https://crabtoast90-dev.github.io/poker-squads/

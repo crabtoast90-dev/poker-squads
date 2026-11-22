@@ -19,20 +19,25 @@ Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.
   *Done when:* Brian picks an option and BALANCE.md shows the round-by-round rarity spread hitting it.
 
 ## Next: make class matter
-- [ ] **K1. Class matters.** Brian is deciding the direction in the design chat from `CLASSES-REPORT.md` (options A-E). Build what comes back, rerun the sim, report the class-aware lead. Files: SHARED `data.js`, `fight.js`, `power.js`, `bots.js`, `scripts/sim.mjs`; view.
+- [x] **K1. Class matters (classes pass).** Built Brian's spec from the design chat: class mechanics on every unit, face bonuses, 4 heroes (pick 2), formation rules, keep one, 12 relics, the full 8-round run on screen, power that counts it all. Files: SHARED `data.js`, `fight.js`, `power.js`, `bots.js`, `scripts/sim.mjs`; view.
   *Done when:* BALANCE.md shows the class-aware bot clearing 10+ points more than greedy (or Brian's new class target).
 
-## Lane A: the full 8-round run with deck return
-- [ ] **A1. Run on screen.** After the fight: lives (3), round counter, next round's skeletons, round 8 boss, run won/lost screens. The 6 units become cards (suit, number, rarity bonus chips) and replace deck cards by the rule in `returnRule`. Files: `src/view/squads-view.js`, `src/main.js`, `index.html`, `src/style.css`, `scripts/check.mjs`; SHARED `src/squads/sim.js`, `run.js`.
+## Lane A: the full 8-round run with deck return (A1 done in the classes pass)
+- [x] **A1. Run on screen.** After the fight: lives (3), round counter, next round's skeletons, round 8 boss, run won/lost screens. The 6 units become cards (suit, number, rarity bonus chips) and replace deck cards by the rule in `returnRule`. Files: `src/view/squads-view.js`, `src/main.js`, `index.html`, `src/style.css`, `scripts/check.mjs`; SHARED `src/squads/sim.js`, `run.js`.
   *Done when:* the check plays a whole run through the buttons (bot moves, Skip on fights) and its deck and results match `runRun` in Node; returned cards show their rarity border and +chips in the hand.
 - [ ] **A2. Pick the deck-return rule.** After A1. Brian picks from BALANCE.md's three candidates (or asks for more). Files: SHARED `data.js`, `run.js`.
   *Done when:* BALANCE.md's drift row passes with the picked rule.
 
 ## Lane B: heroes and hero events
-- [ ] **B1. Pick 2 of 4 heroes at run start.** Files: `index.html`, `src/view/squads-view.js`, SHARED `sim.js`, `data.js`.
+- [x] **B1. Pick 2 of 4 heroes at run start.** Files: `index.html`, `src/view/squads-view.js`, SHARED `sim.js`, `data.js`.
   *Done when:* the check starts a run with each pair once and the fight matches Node.
 - [ ] **B2. Hero events.** A hand sometimes births a hero event (chance rises with score; class from the suit roll). Own that hero: it levels up. Don't: swap it in (replaced hero becomes a Legendary Ace of its suit in the deck) or level one of yours. The hand is free (still 6 units). Files: SHARED `sim.js`, `data.js`, `fight.js` (hero levels), `bots.js`; view; check.
   *Done when:* BALANCE.md shows events per round, and the check screenshots an event and both choices via `?deck`.
+
+## Open from the classes pass
+- [ ] **K2. Late fights too long.** Round 8 (2 heroes + 13 units vs 15) averages 35 s against the 15-25 s target; 1 fight in 15 hits the 60 s limit. Options: steeper damage per round, fewer skeletons late, or a cap on Shields.
+- [ ] **K3. Power number misreads weak-looking armies.** Armies rated 30%+ behind still win about a third of the time (mostly rounds 6-8). It calls the winner 75% overall.
+- [ ] **K4. Early Legendaries rare.** 3% of runs get one in rounds 1-3 (target 5-15%).
 
 ## Lane C: tuning (after 0b, A1 and B2)
 - [ ] **C1. Three candidate tuning sets** that each hit every target in BALANCE.md (greedy clears 20-35%, class-aware +10 points, hero events 0.7-1.3/round, round-8 four-of-a-kind-or-better under 25%, early Legendary 5-15% of runs, fights 15-25 s, run 15-25 min). Fix timing or structure before stats. Files: SHARED `data.js`, `scripts/sim.mjs`.

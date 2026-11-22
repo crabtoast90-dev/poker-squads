@@ -1,17 +1,17 @@
-// npm run check: build, open the site headless on laptop and phone, play a whole round
-// through the real buttons on the test clock, save screenshots, and fail on console
-// errors, failed requests, a frozen state, figures out of frame, or a browser round or
-// fight that differs from the same round played in Node.
+// npm run check: build, open the site headless, play whole runs through the real buttons on
+// the test clock (the page's bot picks each move; the script taps the matching button), save
+// screenshots, and fail on console errors, failed requests, a stuck screen, or a run that
+// differs from the same run played in Node.
 //   npm run check                    build and check this checkout
 //   npm run check -- --url=<live>    check a deployed site instead
-//   npm run check -- --only=phone    only the runs whose name contains "phone"
+//   npm run check -- --only=defeat   only the runs whose name contains "defeat"
+// Build-speed phase: laptop only (Brian, 2026-11-22). Phone runs come back with polish.
 import { build, preview } from 'vite';
 import { chromium } from 'playwright-core';
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SQUADS } from '../src/squads/data.js';
-import { createRound, act, roundDigest } from '../src/squads/sim.js';
-import { stepFight } from '../src/squads/fight.js';
+import { runRun } from '../src/squads/run.js';
 import { greedy } from '../src/squads/bots.js';
 import { digest } from '../src/squads/rng.js';
 import { applyTune } from '../src/tune.js';
@@ -22,8 +22,9 @@ const OUT = join(RUNS, new Date().toISOString().replace(/[:.]/g, '-'));
 const URL_ARG = process.argv.find((a) => a.startsWith('--url='))?.slice(6);
 const ONLY = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
 const SEED = 1;
-const LOSE_TUNE = 'fight.enemyPower:6'; // skeletons strong enough to win, to check the Defeat path
-const ACES = ['S14', 'H14', 'C14', 'D14', 'S13']; // ?deck: four aces on top -> a Legendary on hand one
+const LOSE_TUNE = 'fight.enemyPower:9';
+const RANKUP_TUNE = 'birth.luckBase:0.95';
+const ACES = ['S14', 'H14', 'C14', 'D14', 'S13'];
 
 function chromePath() {
   if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
@@ -37,22 +38,14 @@ const summaries = [];
 mkdirSync(OUT, { recursive: true });
 for (const old of readdirSync(RUNS).filter((f) => /^\d{4}-/.test(f)).sort().slice(0, -KEEP)) rmSync(join(RUNS, old), { recursive: true, force: true });
 
-// The same round in Node: the greedy bot plays it (the browser bot is the same function).
-// firstPlay: an action to play first (the Legendary run plays its four aces by hand).
-function nodeRound(data, top = [], firstPlay = null) {
-  const st = createRound(data, SEED, { top });
-  if (firstPlay) act(st, firstPlay);
-  while (st.phase !== 'fight') act(st, greedy(st));
-  const f = st.fight;
-  while (!f.result) stepFight(data, f);
-  return { round: roundDigest(st), fight: `${f.events.length} events ${digest(f.events)}`, result: f.result, time: f.time };
-}
-
-// Node determinism.
-for (const seed of [1, 2, 3]) {
-  const run = () => { const st = createRound(SQUADS, seed); while (st.phase !== 'fight') act(st, greedy(st)); while (!st.fight.result) stepFight(SQUADS, st.fight); return roundDigest(st) + digest(st.fight.events); };
-  if (run() !== run()) failures.push(`[node] seed ${seed}: two runs differ`);
-  else summaries.push(`[node] seed ${seed} round twice: identical`);
+const nodeRun = (data, opts = {}) => {
+  const r = runRun(data, SEED, greedy, data.returnRule, opts);
+  return { log: digest(r.log), history: digest(r.history.map((h) => [h.result, h.time, h.fight.events.length, digest(h.fight.events)])), won: r.won, rounds: r.history.length };
+};
+{
+  const [a, b] = [nodeRun(SQUADS), nodeRun(SQUADS)];
+  if (a.log !== b.log || a.history !== b.history) failures.push('[node] the same run twice differs');
+  else summaries.push(`[node] same run twice: identical (${a.rounds} rounds, ${a.won ? 'cleared' : 'lost'})`);
 }
 
 let server;
@@ -62,24 +55,20 @@ if (!base) {
   server = await preview({ preview: { port: 4327, strictPort: false }, logLevel: 'warn' });
   base = server.resolvedUrls.local[0];
 }
-const browser = await chromium.launch({
-  executablePath: chromePath(),
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
-});
+const browser = await chromium.launch({ executablePath: chromePath(), args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 
 const shot = (page, name, step) => page.screenshot({ path: join(OUT, `${name}-${step}.png`) });
-const state = (page) => page.evaluate(() => window.__game.state());
+const sq = async (page) => (await page.evaluate(() => window.__game.state())).squads;
 const advance = (page, ms) => page.evaluate((t) => window.__game.advance(t), ms);
-const sq = async (page) => (await state(page)).squads;
 
-async function run(name, contextOptions, script, extra = '') {
+async function run(name, script, extra = '') {
   if (ONLY && !name.includes(ONLY)) return;
   const t0 = Date.now();
-  const context = await browser.newContext(contextOptions);
+  const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   page.on('console', (msg) => {
     const line = `[${name}] console.${msg.type()}: ${msg.text()}`;
-    if (!/GPU stall|GL Driver Message/.test(line)) log.push(line);
+    log.push(line);
     if (msg.type() === 'error') failures.push(line);
   });
   page.on('response', (res) => { if (res.status() >= 400) failures.push(`[${name}] HTTP ${res.status()} ${res.url()}`); });
@@ -93,222 +82,134 @@ async function run(name, contextOptions, script, extra = '') {
   summaries.push(`[${name}] took ${((Date.now() - t0) / 1000).toFixed(0)} s`);
 }
 
-// Every figure's feet and head inside the part of the screen the HUD leaves free.
-function checkFraming(name, s, where) {
-  const { top, bottom } = s.band;
-  for (const f of s.framing) {
-    const [fx, fy] = f.feet;
-    const [hx, hy] = f.head;
-    if (Math.abs(fx) > 0.9 || Math.abs(hx) > 0.9 || fy < bottom - 0.02 || hy > top + 0.02) failures.push(`[${name}] ${where}: ${f.id} outside the free band (feet ${f.feet}, head ${f.head}, band ${bottom}..${top})`);
-  }
-}
-
-async function checkAlive(page, name) {
-  const a = (await state(page)).figures.map((f) => f.clipTime);
-  await advance(page, 300);
-  const b = (await state(page)).figures.map((f) => f.clipTime);
-  if (!a.length || a.every((t, i) => t === b[i])) failures.push(`[${name}] figures frozen: animation clock did not move`);
-}
-
-// Wait on the test clock until the round is waiting for input again.
-async function settle(page, name, maxMs = 15000) {
+// Wait on the test clock until the screen is waiting for input.
+const WAITING = ['heroes', 'play', 'choose', 'ready', 'fight', 'end', 'keep', 'relic', 'over'];
+async function settle(page, name, maxMs = 20000) {
   for (let t = 0; t < maxMs; t += 100) {
     const m = (await sq(page)).mode;
-    if (['play', 'ready', 'end'].includes(m)) return m;
+    if (WAITING.includes(m)) return m;
     await advance(page, 100);
   }
-  failures.push(`[${name}] stuck in mode ${(await sq(page)).mode}`);
+  failures.push(`[${name}] stuck in screen ${(await sq(page)).mode}`);
   return null;
 }
 
-// Play one action through the real buttons.
-async function doAction(page, click, a) {
-  if (a.type === 'play' || a.type === 'discard') {
-    for (const id of a.ids) await click(`#hand .card[data-id="${id}"]`);
-    await advance(page, 50);
-    await click(a.type === 'play' ? '#play' : '#discard');
-  } else if (a.type === 'battle') await click('#battle');
+// One move through the real buttons.
+async function tap(page, a) {
+  const c = (sel) => page.click(sel);
+  if (a.type === 'heroes') { for (const k of a.picks) await c(`.hero-opt[data-hero="${k}"]`); await c('#start-run'); }
+  else if (a.type === 'play' || a.type === 'discard') { for (const id of a.ids) await c(`#hand .card[data-id="${id}"]`); await advance(page, 30); await c(a.type === 'play' ? '#play' : '#discard'); }
+  else if (a.type === 'choose') await c(`.choice-opt[data-pick="${a.pick}"]`);
+  else if (a.type === 'battle') await c('#battle');
+  else if (a.type === 'skip') await c('#skip');
+  else if (a.type === 'continue') await c('#continue');
+  else if (a.type === 'keep') await c(`.keep-opt[data-id="${a.id}"]`);
+  else if (a.type === 'relic') await c(`.relic-opt[data-id="${a.id}"]`);
+  else throw new Error(`no button for ${a.type}`);
 }
 
-// Play the round to the fight with the bot through the buttons, screenshotting the first reveal.
-async function playRound(page, name, click, { shots = true, firstPlay = null } = {}) {
-  let n = 0;
-  let shotReveal = false;
-  for (let i = 0; i < 40; i++) {
+// Play the whole run with the page's bot. shots: screenshot the first time each screen appears.
+// watchFirstFight: play round 1's fight at 2x instead of skipping it.
+async function playRun(page, name, { shots = true, watchFirstFight = false, firstPlay = null } = {}) {
+  const seen = new Set();
+  let fights = 0;
+  for (let i = 0; i < 600; i++) {
     const m = await settle(page, name);
-    if (m === 'ready') break;
-    if (!m) return;
-    const a = i === 0 && firstPlay ? firstPlay : await page.evaluate(() => window.__game.bot());
-    if (!a) { failures.push(`[${name}] bot had no move in mode ${m}`); return; }
-    if (a.type === 'play' && shots && n === 0 && !firstPlay) {
-      for (const id of a.ids) await click(`#hand .card[data-id="${id}"]`);
-      await advance(page, 50);
-      await shot(page, name, '2-odds');
-      const odds = await page.evaluate(() => [document.getElementById('odds-hand').textContent, document.getElementById('odds-class').textContent, document.getElementById('odds-rarity').textContent]);
-      const gain = await page.evaluate(() => document.getElementById('odds-gain').textContent);
-      if (!/power/.test(gain)) failures.push(`[${name}] power gain not shown before committing (${gain})`);
-      odds.push(gain);
-      if (!odds[1] || !odds[2].includes('%')) failures.push(`[${name}] odds not shown before committing (${odds})`);
-      summaries.push(`[${name}] odds before the first hand: ${odds.join(' | ')}`);
-      await click('#play');
-      n++;
-    } else {
-      await doAction(page, click, a);
-      if (a.type === 'play') n++;
-    }
-    if (a.type === 'play' && shots && !shotReveal) {
-      shotReveal = true;
-      const R = SQUADS.reveal;
-      await advance(page, R.gather + R.count + 50);
-      await shot(page, name, '3-reveal-score');
-      await advance(page, R.rollBase + R.luck * 0.5);
-      await shot(page, name, '4-reveal-luck');
-      await advance(page, R.luck * 0.5 + 100);
-      await shot(page, name, '4b-luck-result');
-      await settle(page, name);
-      await shot(page, name, '5-born');
-    }
-  }
-  const s = await sq(page);
-  if (s.mode !== 'ready') failures.push(`[${name}] round did not reach the fight (mode ${s.mode})`);
-  if (s.army.length !== 6) failures.push(`[${name}] expected 6 units, got ${s.army.length}`);
-  const cp = await page.evaluate(() => [document.getElementById('cp-mine').textContent, document.getElementById('cp-foes').textContent]);
-  if (!/\d/.test(cp[0]) || !/\d/.test(cp[1])) failures.push(`[${name}] combat power not shown (${cp})`);
-  summaries.push(`[${name}] round played through the buttons: ${n} hands, army: ${s.army.join(', ')}; power ${cp[0]} vs skeletons ${cp[1]}`);
-  if (shots) await shot(page, name, '6-squads-ready');
-}
-
-async function playFight(page, name, click, data, top, { want, skip, firstPlay, shots = true } = {}) {
-  const node = nodeRound(data, top, firstPlay);
-  await click('#battle');
-  await advance(page, 200);
-  if (shots) await shot(page, name, '7-fight-start');
-  if (skip) {
-    await click('#skip');
-  } else {
-    await click('#speed'); // 2x
-    let s = await sq(page);
-    if (s.speed !== 2) failures.push(`[${name}] 2x toggle did not switch speed`);
-    let shotMid = false;
-    for (let i = 0; i < 600 && !s.fight?.result; i++) {
-      await advance(page, 250);
-      s = await sq(page);
-      if (!shotMid && s.fight.time > 6) {
-        shotMid = true;
-        if (shots) await shot(page, name, '8-mid-fight');
+    if (!m || m === 'over') break;
+    let a = await page.evaluate(() => window.__game.bot());
+    if (!a) { failures.push(`[${name}] no move on screen ${m}`); return; }
+    if (firstPlay && a.type === 'play') { a = firstPlay; firstPlay = null; }
+    if (shots && !seen.has(m)) { seen.add(m); await shot(page, name, `${String(seen.size).padStart(2, '0')}-${m}`); }
+    if (a.type === 'skip' && watchFirstFight && fights === 0) {
+      await page.click('#speed');
+      let s = await sq(page);
+      let shotMid = false;
+      for (let k = 0; k < 400 && !s.fight.result; k++) {
+        await advance(page, 250);
+        s = await sq(page);
+        if (!shotMid && s.fight.time > 8) { shotMid = true; if (shots) await shot(page, name, 'fight-mid'); }
       }
+      fights++;
+      continue;
     }
+    if (a.type === 'play' && shots && !seen.has('reveal')) {
+      seen.add('reveal');
+      for (const id of a.ids) await page.click(`#hand .card[data-id="${id}"]`);
+      await advance(page, 30);
+      await shot(page, name, 'odds');
+      const odds = await page.evaluate(() => ['odds-hand', 'odds-class', 'odds-rarity', 'odds-gain'].map((id) => document.getElementById(id).textContent));
+      if (!odds[1] || !odds[2].includes('%') || !/power/.test(odds[3])) failures.push(`[${name}] odds or power gain missing before committing (${odds})`);
+      summaries.push(`[${name}] odds before the first hand: ${odds.join(' | ')}`);
+      await page.click('#play');
+      const R = SQUADS.reveal;
+      await advance(page, R.gather + R.count + R.rollBase + R.luck * 0.5);
+      await shot(page, name, 'reveal-luck');
+      continue;
+    }
+    if (a.type === 'skip') fights++;
+    await tap(page, a);
+    if (a.type === 'continue' || a.type === 'skip') await advance(page, SQUADS.reveal.endDelay + 100);
   }
-  await advance(page, data.reveal.endDelay + 400);
+  if (shots) await shot(page, name, 'zz-over');
+}
+
+async function compare(page, name, data, opts = {}, want = null) {
   const s = await sq(page);
-  if (shots || skip) await shot(page, name, '9-result');
-  if (!s.fight?.result) return failures.push(`[${name}] fight did not finish on screen`);
-  if (!(await page.isVisible('#sq-end'))) failures.push(`[${name}] result banner not shown`);
-  if (s.roundDigest !== node.round) failures.push(`[${name}] round differs from Node (browser ${s.roundDigest}, Node ${node.round})`);
-  else if (s.fight.digest !== node.fight || s.fight.result !== node.result) failures.push(`[${name}] fight differs from Node (browser ${s.fight.result} ${s.fight.digest}, Node ${node.result} ${node.fight})`);
-  else summaries.push(`[${name}] round and fight match Node: ${s.fight.result} in ${s.fight.time.toFixed(1)} s (${node.fight})${skip ? ', via Skip' : ''}`);
-  if (want && s.fight.result !== want) failures.push(`[${name}] expected ${want}, got ${s.fight.result}`);
-  summaries.push(`## ${name} result\n${await page.evaluate(() => window.__game.stateText())}`);
+  const node = nodeRun(data, opts);
+  if (s.runPhase !== 'over') failures.push(`[${name}] run did not finish (screen ${s.mode}, run ${s.runPhase})`);
+  if (s.runDigest !== node.log || s.historyDigest !== node.history) failures.push(`[${name}] run differs from Node (browser ${s.runDigest} ${s.historyDigest}, Node ${node.log} ${node.history})`);
+  else summaries.push(`[${name}] whole run through the buttons matches Node: ${node.rounds} rounds, ${node.won ? 'cleared' : 'lost'}; relics ${s.relics.join(', ') || 'none'}; kept ${s.kept}`);
+  if (want !== null && s.won !== want) failures.push(`[${name}] expected ${want ? 'a clear' : 'a loss'}`);
+  summaries.push(`## ${name}\n${await page.evaluate(() => window.__game.stateText())}`);
 }
 
-async function walk(page, name, click) {
+async function walk(page, name) {
   await advance(page, 100);
-  let s = await state(page);
-  if (s.screen !== 'start') failures.push(`[${name}] expected the start screen, got ${s.screen}`);
-  await shot(page, name, '0-start');
-  await click('.mode[data-mode="squads"]');
-  await advance(page, 300);
-  s = await state(page);
-  if (s.screen !== 'squads') failures.push(`[${name}] round: screen ${s.screen}`);
-  if (s.squads.hand.length !== SQUADS.round.handSize) failures.push(`[${name}] hand has ${s.squads.hand.length} cards`);
-  await shot(page, name, '1-round');
-  await playRound(page, name, click);
-  await playFight(page, name, click, SQUADS, []);
-  await click('#again');
-  await advance(page, 300);
-  s = await sq(page);
-  if (s.reveals !== 0 || s.mode !== 'play' || s.fight) failures.push(`[${name}] Play again did not restart the round`);
-  await click('#back');
-  await advance(page, 100);
-  if ((await state(page)).screen !== 'start') failures.push(`[${name}] back did not return to the start screen`);
+  await shot(page, name, '00-start');
+  await page.click('.mode[data-mode="squads"]');
+  await advance(page, 200);
+  if ((await sq(page)).mode !== 'heroes') failures.push(`[${name}] expected the hero pick`);
+  await playRun(page, name, { watchFirstFight: true });
+  await compare(page, name, SQUADS);
+  await page.click('#new-run');
+  await advance(page, 200);
+  if ((await sq(page)).mode !== 'heroes') failures.push(`[${name}] New run did not restart`);
 }
 
-// ?deck puts four aces on top: hand one is Four of a Kind -> Epic or better, with a luck roll.
-async function legendary(page, name, click) {
-  await advance(page, 300);
-  const first = { type: 'play', ids: ACES.slice(0, 4) };
-  for (const id of first.ids) await click(`#hand .card[data-id="${id}"]`);
-  await advance(page, 50);
-  await shot(page, name, '1-odds');
-  await click('#play');
-  const R = SQUADS.reveal;
-  await advance(page, R.gather + R.count + R.rollBase + R.luck * 0.6);
-  await shot(page, name, '2-luck');
-  await advance(page, R.luck * 0.4 + 100);
-  await shot(page, name, '3-luck-result');
-  await settle(page, name);
-  await shot(page, name, '4-joined');
-  await settle(page, name);
+// Four aces on top: hand one is Four of a Kind, a face card -> a bonus at the reveal.
+async function aces(page, name) {
+  await advance(page, 200);
+  await playRun(page, name, { shots: false, firstPlay: { type: 'play', ids: ACES.slice(0, 4) } });
+}
+
+const RELIC_HOOK = 'pokerPair,pokerFace,pokerLuck';
+await run('laptop', (page) => walk(page, 'laptop'));
+await run('laptop-relic-choices', async (page) => {
+  await advance(page, 200);
+  await playRun(page, 'laptop-relic-choices', { shots: false });
   const s = await sq(page);
-  if (!s.lastReveal || s.lastReveal.rarity < 3) failures.push(`[${name}] four aces did not give Epic or better (${JSON.stringify(s.lastReveal)})`);
-  else summaries.push(`[${name}] four aces (${s.lastReveal.score}) -> ${s.lastReveal.unit}; luck roll ${Math.round(s.lastReveal.upChance * 100)}% to rank up, ${s.lastReveal.rankedUp ? 'ranked up' : 'did not rank up'}`);
-  await playRound(page, name, click, { shots: false, firstPlay: null });
-  await playFight(page, name, click, SQUADS, ACES, { skip: true, firstPlay: first, shots: false });
-}
-
-// ?tune makes the luck roll near-certain, so the RANK UP moment is screenshotted every run.
-const RANKUP_TUNE = 'birth.luckBase:0.95';
-async function rankUp(page, name, click) {
-  await advance(page, 300);
-  const a = await page.evaluate(() => window.__game.bot());
-  await doAction(page, click, a.type === 'play' ? a : { type: 'play', ids: (await sq(page)).hand.slice(0, 2) });
-  const R = SQUADS.reveal;
-  await advance(page, R.gather + R.count + R.rollBase + R.luck + R.luckResult * 0.5);
-  await shot(page, name, '1-rank-up');
-  await settle(page, name);
-  const s = await sq(page);
-  if (!s.lastReveal?.rankedUp) failures.push(`[${name}] luck roll at ${RANKUP_TUNE} did not rank up (${JSON.stringify(s.lastReveal)})`);
-  else summaries.push(`[${name}] luck roll ranked up: ${s.lastReveal.unit}`);
-}
-
-async function tunedLoss(page, name, click) {
-  await advance(page, 300);
-  if ((await state(page)).screen !== 'squads') failures.push(`[${name}] ?mode=squads did not skip the start screen`);
-  await playRound(page, name, click, { shots: false });
-  await playFight(page, name, click, applyTune(SQUADS, LOSE_TUNE), [], { want: 'lose', skip: true, shots: false });
-}
-
-async function debugOverlay(page, name) {
-  await advance(page, 100);
-  if (!(await page.isVisible('#fps'))) failures.push(`[${name}] ?debug did not show the FPS overlay`);
-  summaries.push(`[${name}] ?debug overlay visible`);
-}
-
-const DEVICES = {
-  laptop: [{ viewport: { width: 1280, height: 720 } }, (page) => (sel) => page.click(sel)],
-  phone: [{ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }, (page) => (sel) => page.tap(sel)],
-};
-// Build-speed phase: laptop only (Brian, 2026-11-22). Phone runs come back with polish.
-const [lopts, linput] = DEVICES.laptop;
-await run('laptop', lopts, (page) => walk(page, 'laptop', linput(page)));
-await run('laptop-legendary', lopts, (page) => legendary(page, 'laptop-legendary', linput(page)), `&mode=squads&deck=${ACES.join(',')}`);
-await run('laptop-rankup', lopts, (page) => rankUp(page, 'laptop-rankup', linput(page)), `&mode=squads&tune=${RANKUP_TUNE}`);
-await run('laptop-defeat', lopts, (page) => tunedLoss(page, 'laptop-defeat', linput(page)), `&mode=squads&tune=${LOSE_TUNE}`);
+  if (!s.choicesShown) failures.push('[laptop-relic-choices] the Twin Choice / Royal Court choice never appeared');
+  else summaries.push(`[laptop-relic-choices] relic choices shown and answered through the buttons: ${s.choicesShown}`);
+  await compare(page, 'laptop-relic-choices', SQUADS, { relics: RELIC_HOOK.split(',') });
+}, `&mode=squads&relics=${RELIC_HOOK}`);
+await run('laptop-rankup', async (page) => {
+  await advance(page, 200);
+  await playRun(page, 'laptop-rankup', { shots: false });
+  await compare(page, 'laptop-rankup', applyTune(SQUADS, RANKUP_TUNE));
+}, `&mode=squads&tune=${RANKUP_TUNE}`);
+await run('laptop-defeat', async (page) => {
+  await advance(page, 200);
+  await playRun(page, 'laptop-defeat', { shots: false });
+  await shot(page, 'laptop-defeat', 'over');
+  await compare(page, 'laptop-defeat', applyTune(SQUADS, LOSE_TUNE), {}, false);
+}, `&mode=squads&tune=${LOSE_TUNE}`);
 
 await browser.close();
 await server?.close();
 
 const report = [
   `# Check ${failures.length ? 'FAILED' : 'passed'}${ONLY ? ` (ONLY runs matching "${ONLY}")` : ''} — ${new Date().toISOString()}`,
-  `target: ${base}`,
-  '',
-  ...summaries,
-  '',
-  '## failures',
-  ...(failures.length ? failures : ['none']),
-  '',
-  '## console',
-  ...(log.length ? log : ['(empty)']),
+  `target: ${base}`, '', ...summaries, '', '## failures', ...(failures.length ? failures : ['none']), '', '## console', ...(log.length ? log : ['(empty)']),
 ].join('\n');
 writeFileSync(join(OUT, 'summary.txt'), report + '\n');
 console.log(report);

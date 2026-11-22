@@ -38,3 +38,20 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - Skeleton strength multiplier 1.6 so the greedy bot clears 25% (target 20-35%). A placeholder ahead of lane C tuning. *(my call)*
 - The luck roll on screen: a bar whose coloured end is the rank-up chance; a marker races and settles where the sim's roll landed, then "RANK UP!" with a flash and chime, or "No luck". *(my call)*
 - Brian: classes next, decided in the design chat; Claude wrote CLASSES-REPORT.md as the brief for it.
+
+## 2026-11-22 (classes pass, Brian's spec from the design chat)
+- Brian: every unit carries its class mechanic scaled by power (Knight Armor, Witch Burn ignoring Armor, Priestess Shield on the most hurt ally, Rogue Crit + back-line jump). Old J-A abilities and the flat counter table removed.
+- Brian: face cards roll 1 bonus from a class pool of 3 (Knight Bulwark/Chivalry/Taunt, Witch Inferno/Chill/Splash, Priestess Aegis/Mend/Bless, Rogue Keen/Poison/Ambush), shown at the reveal.
+- Brian: 4 heroes, pick 2 at run start; Ortha and Vey kept; skills boost their own class. No hero events or swaps this pass.
+- Brian: formation rules (front line hit first; Rogues jump; no front line = back line hit from the start); skeleton make-up varies by round and is shown before you play.
+- Brian: keep 1 of the round's 6 after every fight; 1 of 3 relics after every win (12 relics, one offer always matches a hero).
+- Brian: fights a slope (equal power = 25-75% win); power counts mechanics, hero skills and relics.
+- Priestess hero: Mother Selune; Rogue hero: Shade Corvin. Bonus names: Bulwark, Chivalry, Taunt, Inferno, Chill, Splash, Aegis, Mend, Bless, Keen, Poison, Ambush. Relic names: Tempered Plate, Last Oath, Slow Kindling, Searing Brand, Greater Ward, Thorned Ward, Honed Edge, Killer's Mark, Loose Sleeve, Twin Choice, Royal Court, Lucky Coin. *(my call)*
+- Ortha's skill reads "every Knight gives all allies 20% of its Armor" (scales with the Knights you draft instead of a flat number). Heroes no longer have timed skills; their skill is passive. *(my call)*
+- Class numbers (power 1): Knight 140 hp, 5 attack, Armor 2.2; Rogue 55 hp, 8 attack, 25% crit; Witch 55 hp, 8 attack, Burn 3.2/s for 4 s; Priestess 65 hp, Shield 24 every 3 s (a Shield is capped at 60% of max health). Set so a mixed front + back army beats any one-class army. *(my call)*
+- Skeleton armies: 8 skeletons in round 1, one more each round (your army also grows by one keep a round); leans Shield wall, Stalker raid, Caster horde, Iron line, Night raid, Grave choir, Bone legion, The Bone King. New skeletons: Bone Brute (Taunt), Grave Acolyte (Priestess), Bone King (boss Knight with Taunt). *(my call)*
+- Fights a slope: each hit rolls ±30%, and a fresh target is one of the two nearest; damage grows 10% per round so big late armies finish sooner; at 60 s the side with more health left (by share) wins. *(my call)*
+- Combat power = 0.5 × sqrt(effective health × damage per second), read from every fighter as built, against the other army's average hit and Armor; Armor and Shield worths fitted to sim fights (0.6, 0.4). *(my call)*
+- When a relic gives a choice (Twin Choice, Royal Court), you choose right after playing, before the reveal; the reveal then plays out the chosen unit. *(my call; it spoils the class a moment early)*
+- After round 8 there is no keep (the run is over). A lost fight still lets you keep one; only a win offers a relic. *(my call on the first; Brian on the second)*
+- Skeleton strength (2.5x, round curve 0.8 to 3.4) and bot weights set by hand so greedy clears ~26% and class-aware ~39%. Placeholder ahead of lane C tuning. *(my call)*

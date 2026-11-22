@@ -44,7 +44,7 @@ const roundSeed = (seed, r) => (seed * 1000003 + r * 7717) >>> 0;
 export function createRun(data, seed, opts = {}) {
   const run = {
     data, seed, rng: makeRng((seed ^ 0x9e3779b9) >>> 0), rule: opts.rule ?? data.returnRule, top: opts.top ?? [],
-    heroes: null, relics: [], kept: [], deck: standardDeck(), lives: data.run.lives,
+    heroes: null, relics: (opts.relics ?? []).slice(), kept: [], deck: standardDeck(), lives: data.run.lives,
     roundIndex: 0, round: null, phase: 'heroes', offers: null, lastFight: null, history: [], log: [], won: false,
   };
   if (opts.heroes) runAct(run, { type: 'heroes', picks: opts.heroes });

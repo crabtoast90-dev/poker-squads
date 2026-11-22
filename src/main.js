@@ -11,6 +11,7 @@ const TEST = params.has('test'); // ?test: the clock only moves when the check c
 const seed = Number(params.get('seed') ?? (TEST ? 1 : Math.floor(Date.now() % 100000) + 1)); // ?seed=N picks the deal
 const SQUADS = applyTune(SQUADS_DATA, params.get('tune')); // ?tune=fight.enemyPower:3 tries numbers by name
 const TOP = params.get('deck')?.split(',').filter(Boolean) ?? []; // ?deck=S14,H14: these cards are drawn first
+const RELICS = params.get('relics')?.split(',').filter(Boolean) ?? []; // ?relics=pokerFace: start the run holding these
 const $ = (id) => document.getElementById(id);
 const audio = createAudio({ enabled: !TEST });
 
@@ -22,7 +23,7 @@ function enter() {
   screen = 'squads';
   $('start').hidden = true;
   $('back').hidden = false;
-  view = createSquadsView({ data: SQUADS, seed, audio, $, top: TOP, onRestart: () => enter() });
+  view = createSquadsView({ data: SQUADS, seed, audio, $, top: TOP, relics: RELICS, onRestart: () => enter() });
 }
 function leave() {
   view?.dispose();
@@ -46,7 +47,7 @@ function stateText() {
   const lines = [`screen: ${screen}; seed ${seed}; test clock ${TEST ? `on (${clock.time.toFixed(2)} s)` : 'off'}${params.get('tune') ? `; tune ${params.get('tune')}` : ''}${TOP.length ? `; deck top ${TOP.join(',')}` : ''}`];
   if (view) {
     const v = view.state();
-    lines.push(`round: ${v.mode}; hands left ${v.handsLeft}, discards left ${v.discardsLeft}; reveals ${v.reveals}`);
+    lines.push(`run: ${v.runPhase}, screen ${v.mode}; round ${v.round}, lives ${v.lives}, kept ${v.kept}, relics ${v.relics.join(', ') || 'none'}${v.won ? ', CLEARED' : ''}; hands left ${v.handsLeft}, discards left ${v.discardsLeft}; reveals ${v.reveals}`);
     if (v.lastReveal) lines.push(`  last birth: ${v.lastReveal.hand} scoring ${v.lastReveal.score} -> ${v.lastReveal.unit}`);
     lines.push(`  army: ${v.army.join(', ') || '(empty)'}${v.power ? `; power ${v.power.mine} vs skeletons ${v.power.foes}` : ''}`);
     if (v.fight) lines.push(`  fight: ${v.fight.time.toFixed(1)} s, ${v.fight.events} events${v.fight.result ? `, ${v.fight.result}` : ''}${v.skipped ? ' (skipped)' : ''}`);
