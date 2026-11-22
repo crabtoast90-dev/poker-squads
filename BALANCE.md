@@ -1,6 +1,6 @@
 # Balance report
 
-Written by `npm run sim` on 2026-11-22 02:11 UTC (57 s). Do not edit by hand.
+Written by `npm run sim` on 2026-11-22 02:15 UTC (55 s). Do not edit by hand.
 
 Poker numbers checked by Brian (fine for prototyping). Rarity thresholds and skeleton strength were set by hand for N3 (Rare+ in round 1 under 20%, greedy clears ~30%); the full three-candidate tuning is lane C. Hero events and the on-screen run are later lanes; the run here is sim only.
 
@@ -18,7 +18,7 @@ Poker numbers checked by Brian (fine for prototyping). Rarity thresholds and ske
 | Round-1 births that are Rare or better | under 20% | 16% | **PASS** |
 | Combat power calls the winner | 80%+ of fights | 85% | **PASS** |
 | Fight length | 15-25 s | 22.1 s average | **PASS** |
-| Run length (estimate, cleared runs) | 15-25 min | 16.3 min | **PASS** |
+| Run length (estimate, cleared runs) | 15-25 min | 15.1 min | **PASS** |
 
 **Class barely matters yet.** Playing for classes clears -2 points versus playing for raw score. In this build, rarity (score) decides fights far more than the class mix. You asked to know this.
 
@@ -59,6 +59,8 @@ Round-by-round share of four of a kind or better (greedy bot):
 - Hands played in round 8: Full House 41%, Straight 24%, Four of a Kind 15%, Two Pair 10%, Flush 4%, Five of a Kind 3%, Straight Flush 1%, Flush House 1%, Three of a Kind 1%, Flush Five 0%.
 
 ## Combat power: does the number mean anything?
+
+It calls the winner in 85% of all fights, and 79% of fights in rounds 3-8 (the closer ones).
 
 Win rate by how your army's power compares with the skeletons' (greedy bot, every fight):
 

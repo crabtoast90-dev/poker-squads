@@ -46,7 +46,7 @@ function revealSec(u, tier) {
 function roundMinutes(x) {
   const P = D.pace;
   const reveals = x.units.reduce((s, u) => s + revealSec(u, 0), 0);
-  return (x.handsPlayed * P.thinkPerHand + x.discards * P.thinkPerDiscard + reveals + x.units.length * P.assignClick + P.preFight + x.time + P.postFight) / 60;
+  return (x.handsPlayed * P.thinkPerHand + x.discards * P.thinkPerDiscard + reveals + P.preFight + x.time + P.postFight) / 60;
 }
 const runMinutes = (r) => r.rounds.reduce((s, x) => s + roundMinutes(x), 0);
 
@@ -67,7 +67,9 @@ const r1 = g.flatMap((r) => r.rounds[0].rarities);
 const r1RarePlus = (100 * r1.filter((q) => q >= 2).length) / (r1.length || 1);
 // Does combat power call the winner? (every fight of the greedy runs)
 const calls = allRounds(g).map((x, i) => { const p = armyPowers(D, { heroes: D.startHeroes, units: x.units }, x.round - 1); return { ratio: p.mine / p.foes, win: x.result === 'win' }; });
-const predicts = (100 * calls.filter((c) => (c.ratio >= 1) === c.win).length) / calls.length;
+const callRate = (list) => (100 * list.filter((c) => (c.ratio >= 1) === c.win).length) / (list.length || 1);
+const predicts = callRate(calls);
+const predictsLate = callRate(calls.filter((c, i) => allRounds(g)[i].round >= 3));
 
 const verdicts = [
   ['Greedy bot clears the run', `${T.greedyClear.min}-${T.greedyClear.max}%`, pct(gClear), gClear >= T.greedyClear.min && gClear <= T.greedyClear.max],
@@ -153,6 +155,8 @@ line(`- Hands played in round 8: ${handLine(hand8)}.`);
 line();
 
 line('## Combat power: does the number mean anything?');
+line();
+line(`It calls the winner in ${pct(predicts)} of all fights, and ${pct(predictsLate)} of fights in rounds 3-8 (the closer ones).`);
 line();
 line('Win rate by how your army\'s power compares with the skeletons\' (greedy bot, every fight):');
 line();

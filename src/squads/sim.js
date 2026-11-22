@@ -43,7 +43,7 @@ export function rarityOdds(data, score) {
   if (tier === RARITIES.length - 1) { odds[tier] = 1; return { tier, frac: 1, odds }; }
   const frac = (score - thr[tier]) / (thr[tier + 1] - thr[tier]);
   const up = Math.min(0.95, data.birth.luckBase + data.birth.upChance * frac);
-  const jump = tier + 2 < RARITIES.length ? data.birth.jumpChance * frac : 0;
+  const jump = tier + 2 < RARITIES.length ? Math.min(0.95 - up, data.birth.jumpChance * frac) : 0;
   odds[tier] = 1 - up - jump;
   odds[tier + 1] = up;
   if (jump) odds[tier + 2] = jump;

@@ -262,7 +262,7 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
       ...(canLuck ? [
         { at: tLuck, fn: () => {
           $('rv-luck').hidden = false;
-          $('luck-label').innerHTML = `Luck roll: <b>${pct(upChance)}</b> to rank up to ${RARITY_NAME[L.tier + 1]}`;
+          $('luck-label').innerHTML = `Luck roll: <b>${pct(upChance)}</b> to rank up to ${RARITY_NAME[L.tier + 1]}${luckOdds[L.tier + 2] ? ` <small>(${pct(luckOdds[L.tier + 2])} of that skips to ${RARITY_NAME[L.tier + 2]})</small>` : ''}`;
           const z = $('rv-luck').querySelectorAll('.z');
           z[0].style.width = `${luckOdds[L.tier] * 100}%`;
           z[1].style.width = `${(luckOdds[L.tier + 1] ?? 0) * 100}%`;

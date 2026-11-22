@@ -150,7 +150,7 @@ export const SQUADS = {
     runMinutes: { min: 15, max: 25 },
   },
   // Time a person takes (for the run-length estimate only). *(my call)*
-  pace: { thinkPerHand: 9, thinkPerDiscard: 4, assignClick: 1.5, preFight: 3, postFight: 4 },
+  pace: { thinkPerHand: 9, thinkPerDiscard: 4, preFight: 3, postFight: 4 },
 
   // ---- On screen (view only; the sim ignores these). Milliseconds. ----
   reveal: {
