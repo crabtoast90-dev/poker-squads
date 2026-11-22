@@ -56,24 +56,24 @@ export function unitPower(data, rarity, rank) {
   return tp[rarity] + (tp[rarity + 1] - tp[rarity]) * data.birth.rankSpread * ((rank - 2) / 12);
 }
 
-export function makeUnit(data, card, rarity, n, bonus = null) {
+export function makeUnit(data, card, rarity, n, bonus = null, hand = null, bonus2 = null) {
   return {
     id: `u${n}`, source: card.id, rank: card.rank, suit: card.suit, cls: CLASS_OF[card.suit], rarity,
-    power: +unitPower(data, rarity, card.rank).toFixed(4), bonus,
+    power: +unitPower(data, rarity, card.rank).toFixed(4), bonus, bonus2, hand, traits: hand ? data.traitOf[hand] : [],
   };
 }
 
 const luckOf = (data, relics = []) => (relics.includes('pokerLuck') ? data.relics.pokerLuck.luck : 0);
 
 // What the player sees before committing a hand: the hand, the score and both sets of odds.
-export function preview(data, cards, relics = []) {
-  const ev = evaluate(data, cards);
+export function preview(data, cards, relics = [], levels = {}) {
+  const ev = evaluate(data, cards, levels);
   if (!ev) return null;
-  return { ...ev, classOdds: classOdds(ev.scoring), rarity: rarityOdds(data, ev.score, luckOf(data, relics)) };
+  return { ...ev, traits: data.traitOf[ev.hand], level: levels[ev.hand] ?? 1, classOdds: classOdds(ev.scoring), rarity: rarityOdds(data, ev.score, luckOf(data, relics)) };
 }
 
 // ---- One round ----
-// opts: { heroes, deck, roundIndex, kept: [units], relics: [ids], top: [card ids drawn first] }
+// opts: { heroes, deck, roundIndex, kept: [units], relics, talents, doctrines: { hand: level }, top: [card ids drawn first] }
 export function createRound(data, seed, opts = {}) {
   const rng = makeRng(seed);
   const deck = (opts.deck ?? standardDeck()).map((c) => ({ ...c }));
@@ -82,7 +82,7 @@ export function createRound(data, seed, opts = {}) {
     seed, rng, data,
     roundIndex: opts.roundIndex ?? 0,
     heroes: opts.heroes ?? data.startHeroes.slice(),
-    kept: opts.kept ?? [], relics,
+    kept: opts.kept ?? [], relics, talents: opts.talents ?? [], doctrines: opts.doctrines ?? {},
     draw: shuffle(rng, deck), used: [], hand: [],
     handsLeft: data.round.hands,
     discardsLeft: data.round.discards + (relics.includes('pokerDiscard') ? data.relics.pokerDiscard.discards : 0),
@@ -163,13 +163,24 @@ function continueBirth(st) {
     } else b.bonus = null;
   }
   if (b.bonusPending) return;
+  rollVeteran(st);
   finishBirth(st);
+}
+
+// Veteran (two pair): rolls a class bonus; a face card, which already has one, rolls a second.
+function rollVeteran(st) {
+  const b = st.pending;
+  if (!st.data.traitOf[b.ev.hand].includes('veteran') || b.bonus2 !== undefined) return;
+  const pool = Object.keys(st.data.bonuses[CLASS_OF[b.card.suit]]).filter((k) => k !== b.bonus);
+  const roll = pool[Math.floor(st.rng() * pool.length)];
+  if (b.bonus) b.bonus2 = roll;
+  else b.bonus = roll;
 }
 
 function finishBirth(st) {
   const { data } = st;
   const b = st.pending;
-  const unit = makeUnit(data, b.card, b.rarity, `${st.roundIndex}_${++st.born}`, b.bonus);
+  const unit = makeUnit(data, b.card, b.rarity, `${st.roundIndex}_${++st.born}`, b.bonus, b.ev.hand, b.bonus2 ?? null);
   st.last = { ...b.ev, scoring: b.ev.scoring.map((c) => c.id), played: b.played, unit, pick: b.ev.scoring.indexOf(b.card), roll: b.roll, tier: b.tier, chosen: b.chosen ?? null };
   st.log.push({ type: 'birth', hand: b.ev.hand, score: b.ev.score, unit });
   st.army.push(unit);
@@ -187,7 +198,7 @@ export function act(st, a) {
   if (a.type === 'play') {
     if (st.phase !== 'play' || st.handsLeft <= 0) throw new Error(`can't play in phase ${st.phase}`);
     const cards = take(st, a.ids);
-    const ev = evaluate(data, cards);
+    const ev = evaluate(data, cards, st.doctrines);
     st.handsLeft--;
     st.used.push(...cards);
     st.log.push({ type: 'play', ids: a.ids, hand: ev.hand, score: ev.score });
@@ -212,13 +223,13 @@ export function act(st, a) {
     if (ch.kind === 'card') { b.card = b.ev.scoring.find((c) => c.id === a.pick); b.cardChosen = true; b.chosen = 'card'; }
     else { b.bonus = a.pick; b.bonusPending = false; b.chosen = 'bonus'; }
     if (b.bonusPending) return st;
-    if (ch.kind === 'bonus') finishBirth(st);
+    if (ch.kind === 'bonus') { rollVeteran(st); finishBirth(st); }
     else continueBirth(st);
   } else throw new Error(`unknown action ${a.type}`);
   return st;
 }
 
-export const armyForFight = (st) => ({ heroes: st.heroes, units: [...st.kept, ...st.army], relics: st.relics });
+export const armyForFight = (st) => ({ heroes: st.heroes, units: [...st.kept, ...st.army], relics: st.relics, talents: st.talents, doctrines: st.doctrines });
 export const fightSeed = (st) => (st.seed * 7919 + st.roundIndex * 104729 + 17) >>> 0;
 
 // Fingerprint of the hands and births of a round (the fight has its own).

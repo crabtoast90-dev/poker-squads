@@ -45,10 +45,13 @@ export function cardChips(data, c) {
   return data.poker.rankChips[c.rank] + (c.bonus ?? 0);
 }
 
-export function evaluate(data, cards) {
+// levels: doctrine level per hand type (default 1): each level past 1 adds chips and mult.
+export function evaluate(data, cards, levels = {}) {
   if (!cards.length) return null;
   const { hand, scoring } = classify(cards);
-  const [base, mult] = data.poker.hands[hand];
+  const up = (levels[hand] ?? 1) - 1;
+  const base = data.poker.hands[hand][0] + up * data.doctrine.chips;
+  const mult = data.poker.hands[hand][1] + up * data.doctrine.mult;
   const chips = base + scoring.reduce((s, c) => s + cardChips(data, c), 0);
   return { hand, name: HAND_NAMES[hand], scoring, base, chips, mult, score: chips * mult };
 }
@@ -70,10 +73,10 @@ export function subsets(cards, max) {
 
 // The best play by a value function (default: raw score). Ties go to playing more cards
 // (kickers cycle the deck), then to the earlier subset (deterministic).
-export function bestPlay(data, hand, max, value = (ev) => ev.score) {
+export function bestPlay(data, hand, max, value = (ev) => ev.score, levels = {}) {
   let best = null;
   for (const cards of subsets(hand, max)) {
-    const ev = evaluate(data, cards);
+    const ev = evaluate(data, cards, levels);
     const v = value(ev, cards);
     if (!best || v > best.v || (v === best.v && cards.length > best.cards.length)) best = { v, ev, cards };
   }

@@ -10,7 +10,7 @@ export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 export const SQUADS = {
   // ---- The deck and a round (Brian's numbers) ----
   round: { handSize: 8, maxPlay: 5, hands: 6, discards: 4, armySize: 6 }, // one army: 2 heroes + 6 unit slots (Brian)
-  run: { rounds: 8, lives: 3 },
+  run: { rounds: 8 }, // losing a fight ends the run; beating the round-8 boss wins it (Brian)
 
   // ---- Poker scoring: RESEARCH.md. [base chips, base mult] ----
   poker: {
@@ -97,7 +97,7 @@ export const SQUADS = {
   },
   startHeroes: ['knight', 'witch'], // the default pair (bots and the check)
 
-  // ---- Relics: after each won fight, pick 1 of 3 (one always matches a hero you run). ----
+  // ---- Relics: bought in the shop (2 on the shelf; one always matches a hero you run). ----
   relics: {
     knightPlate: { cls: 'knight', name: 'Tempered Plate', text: 'Knights have 50% more Armor', armor: 0.5 },
     knightOath: { cls: 'knight', name: 'Last Oath', text: 'When a Knight falls, allies gain its Armor for the rest of the fight' },
@@ -113,6 +113,75 @@ export const SQUADS = {
     pokerLuck: { cls: 'poker', name: 'Lucky Coin', text: '+15% chance to roll up a rarity', luck: 0.15 },
   },
 
+  // ---- Hand traits: the poker hand stamps one trait on the unit (Brian). A doctrine level
+  // raises the trait's strength: x (1 + perLevel x (level - 1)). *(my call on the numbers)*
+  traits: {
+    sturdy: { name: 'Sturdy', text: 'extra health', hp: 0.4 },
+    veteran: { name: 'Veteran', text: 'rolls a class bonus (a face card rolls a second)', stats: 0.1 },
+    banner: { name: 'Banner', text: 'allies of its class hit harder', dmg: 0.15 },
+    swift: { name: 'Swift', text: 'attacks faster', speed: 0.3 },
+    devout: { name: 'Devout', text: 'its class mechanic is doubled', mech: 1 },
+    guardian: { name: 'Guardian', text: 'shields the whole army at fight start', shield: 14 },
+    champion: { name: 'Champion', text: 'a large stat boost', stats: 0.6 },
+  },
+  traitOf: {
+    highCard: [], pair: ['sturdy'], twoPair: ['veteran'], threeKind: ['banner'], straight: ['swift'], flush: ['devout'],
+    fullHouse: ['guardian'], fourKind: ['champion'], fiveKind: ['champion'], flushHouse: ['champion'], flushFive: ['champion'],
+    straightFlush: ['swift', 'devout'],
+  },
+  // Doctrines: level up one hand type for the run (+chips, +mult, stronger trait). Stackable.
+  doctrine: { chips: 10, mult: 1, traitPerLevel: 0.5 },
+
+  // ---- Gold and bounties ----
+  gold: { win: 4, perDiscard: 1 }, // plus bounties; Blood Money pays 1 per Rogue kill
+  // 3 bounties a round; pay x (1 + perRound x round). *(my call on the numbers)*
+  bounties: {
+    perRound: 0.15, offered: 3, offSuitLean: 0.7,
+    pool: {
+      straight: { text: 'Birth a unit from a straight', gold: 3 },
+      flush: { text: 'Birth a unit from a flush', gold: 3 },
+      fullHouse: { text: 'Birth a unit from a full house or better', gold: 5 },
+      twoSuit: { text: 'Birth two {suit} units', gold: 3 },
+      threeClasses: { text: 'Birth three different classes', gold: 2 },
+      fourClasses: { text: 'Birth all four classes this round', gold: 5 },
+      lowHand: { text: 'Score 300+ with a pair or a high card', gold: 4 },
+      thrifty: { text: 'End the round with 2+ discards unused', gold: 3 },
+      face: { text: 'Birth a face-card unit', gold: 2 },
+      rare: { text: 'Birth a Rare or better unit', gold: 3 },
+      heroes: { text: 'Win the fight with both heroes alive', gold: 3 },
+      standing: { text: 'Win the fight with half your army standing', gold: 3 },
+    },
+  },
+
+  // ---- The shop: after every win, after you keep your unit (Brian). Prices *(my call)*. ----
+  shop: { rites: 2, doctrines: 2, relics: 2, talentsPerHero: 1, reroll: 2, rerollStep: 1,
+    price: { rite: 7, doctrine: 6, talent: 8, relic: 8 }, riteDeal: 8, minDeck: 30 },
+  rites: {
+    convertS: { name: 'Rite of Spades', kind: 'convert', suit: 'S', text: 'up to 3 of 8 become Spades', max: 3 },
+    convertH: { name: 'Rite of Hearts', kind: 'convert', suit: 'H', text: 'up to 3 of 8 become Hearts', max: 3 },
+    convertC: { name: 'Rite of Clubs', kind: 'convert', suit: 'C', text: 'up to 3 of 8 become Clubs', max: 3 },
+    convertD: { name: 'Rite of Diamonds', kind: 'convert', suit: 'D', text: 'up to 3 of 8 become Diamonds', max: 3 },
+    cull: { name: 'Cull', kind: 'cull', text: 'remove up to 3 of 8 from the deck', max: 3 },
+    echo: { name: 'Echo', kind: 'echo', text: 'pick 1 of 8; up to 2 others become copies of it', max: 3 },
+    crown: { name: 'Crown', kind: 'crown', text: 'up to 2 of 8 become face cards of their suit', max: 2 },
+    gild: { name: 'Gild', kind: 'gild', text: 'up to 3 of 8 go up one rarity (more chips)', max: 3 },
+  },
+  // Hero talents: 3 per hero; the shop offers 1 per hero you run. Bought once each.
+  talents: {
+    knightRogues: { hero: 'knight', name: 'Shared Oath', text: 'Rogues count as Knights for her skill' },
+    knightRear: { hero: 'knight', name: 'Rear Guard', text: 'her Armor bonus is doubled on back-line allies' },
+    knightSpikes: { hero: 'knight', name: 'Spiked Plate', text: 'allies with Armor reflect 20% of hit damage', reflect: 0.2 },
+    witchCrit: { hero: 'witch', name: 'Kindled Blades', text: 'burning enemies take triple damage from Rogue crits' },
+    witchSmoke: { hero: 'witch', name: 'Choking Smoke', text: 'Burn also slows the target\'s attacks by 25%', slow: 0.25 },
+    witchWard: { hero: 'witch', name: 'Warded Flame', text: 'a Witch holding a Shield burns 50% hotter', burn: 0.5 },
+    priestSteel: { hero: 'priestess', name: 'Steel Grace', text: 'a Shield on a Knight also adds 40% Armor', armor: 0.4 },
+    priestLight: { hero: 'priestess', name: 'Last Light', text: 'a Shield that breaks heals its holder for half its size', heal: 0.5 },
+    priestDawn: { hero: 'priestess', name: 'Morning Prayer', text: 'every ally starts the fight with a small Shield', shield: 10 },
+    rogueSense: { hero: 'rogue', name: 'Smell of Smoke', text: 'Rogues gain 5% Crit per burning enemy', crit: 0.05 },
+    rogueBounty: { hero: 'rogue', name: 'Blood Money', text: 'Rogue kills pay 1 gold' },
+    rogueCover: { hero: 'rogue', name: 'Covered Advance', text: 'Rogues take 25% less damage while a Knight stands', cut: 0.25 },
+  },
+
   // ---- Skeleton armies: same classes and rules as yours; make-up varies by round, size
   // grows with your army (8 + round - 1 skeletons). *(my call)* ----
   skeletons: {
@@ -124,14 +193,14 @@ export const SQUADS = {
     king: { name: 'Bone King', cls: 'knight', bonus: 'taunt', hpMult: 3, atkMult: 1.8 },
   },
   enemyRounds: [
-    { power: 0.8, lean: 'Shield wall', units: ['warrior', 'warrior', 'warrior', 'warrior', 'caster', 'caster', 'acolyte', 'stalker'] },
-    { power: 0.92, lean: 'Stalker raid', units: ['warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'acolyte'] },
-    { power: 1.1, lean: 'Caster horde', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte'] },
+    { power: 0.6, lean: 'Shield wall', units: ['warrior', 'warrior', 'warrior', 'warrior', 'caster', 'caster', 'acolyte', 'stalker'] },
+    { power: 0.8, lean: 'Stalker raid', units: ['warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'acolyte'] },
+    { power: 1.0, lean: 'Caster horde', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte'] },
     { power: 1.35, lean: 'Iron line', units: ['brute', 'brute', 'warrior', 'warrior', 'warrior', 'warrior', 'caster', 'caster', 'acolyte', 'acolyte', 'stalker'] },
-    { power: 1.65, lean: 'Night raid', units: ['brute', 'warrior', 'stalker', 'stalker', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'acolyte', 'acolyte', 'caster'] },
-    { power: 1.95, lean: 'Grave choir', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'acolyte', 'stalker', 'stalker', 'warrior'] },
-    { power: 2.25, lean: 'Bone legion', units: ['brute', 'brute', 'warrior', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'warrior'] },
-    { power: 2.6, lean: 'The Bone King', units: ['king', 'brute', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'warrior'] },
+    { power: 1.75, lean: 'Night raid', units: ['brute', 'warrior', 'stalker', 'stalker', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'acolyte', 'acolyte', 'caster'] },
+    { power: 2.2, lean: 'Grave choir', units: ['brute', 'warrior', 'warrior', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'acolyte', 'stalker', 'stalker', 'warrior'] },
+    { power: 2.7, lean: 'Bone legion', units: ['brute', 'brute', 'warrior', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'warrior'] },
+    { power: 3.2, lean: 'The Bone King', units: ['king', 'brute', 'warrior', 'warrior', 'stalker', 'stalker', 'stalker', 'caster', 'caster', 'caster', 'caster', 'acolyte', 'acolyte', 'acolyte', 'warrior'] },
   ],
 
   // ---- The fight ----
@@ -139,7 +208,7 @@ export const SQUADS = {
     tick: 0.1, // seconds per sim step
     damageScale: 1.5, // every hit, Burn, Shield x this: sets fight length
     damagePerRound: 0.1, // ...plus 10% per round, so bigger late armies still finish near 20 s
-    enemyPower: 2.45, // every skeleton's power x this (on top of the round's power); set by hand so greedy clears ~30% *(placeholder)*
+    enemyPower: 2.95, // every skeleton's power x this (on top of the round's power); set by hand so greedy clears ~30% *(placeholder)*
     maxTime: 60, // still going at 60 s: the side with more health left (by share) wins
     spread: 0.3, // each hit rolls x (1 ± spread): fights are a slope, not a cliff
     rows: { front: 1.6, back: 4.2 }, // distance from the middle line, metres
@@ -173,6 +242,8 @@ export const SQUADS = {
     greedyClear: { min: 20, max: 35 }, // % of runs the greedy bot clears
     classAwareLead: { min: 10 }, // points more than greedy
     heroEventsPerRound: { min: 0.7, max: 1.3 },
+    purchasesPerShop: { min: 2, max: 3 },
+    bountiesPerRound: { min: 1, max: 2 },
     heroBuildLead: { min: 10 }, // points: army built around its heroes vs an equal-power army that ignores them
     evenFight: { min: 25, max: 75 }, // % an army wins against one of about the same power
     mixedBeatsMono: true, // a one-class army wins less often than a mixed front + back army

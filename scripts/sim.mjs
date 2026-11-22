@@ -7,7 +7,9 @@ import { greedy, classAware, offHero } from '../src/squads/bots.js';
 import { FOUR_PLUS, HAND_NAMES } from '../src/squads/poker.js';
 import { runFight, createFight } from '../src/squads/fight.js';
 import { makeUnit } from '../src/squads/sim.js';
-import { sidePowers } from '../src/squads/power.js';
+import { sidePowers, expectedGain } from '../src/squads/power.js';
+import { subsets, evaluate } from '../src/squads/poker.js';
+import { createRound, act } from '../src/squads/sim.js';
 import { digest } from '../src/squads/rng.js';
 
 const D = SQUADS;
@@ -32,7 +34,7 @@ const oClear = clear(runs.offHero);
 
 // Power vs outcome over every fight of every bot.
 const calls = Object.values(runs).flatMap((rs) => fights(rs).map((x) => {
-  const f = createFight(D, { heroes: D.startHeroes, units: [...x.kept, ...x.units], relics: x.relics }, x.round - 1, 0);
+  const f = createFight(D, { heroes: D.startHeroes, units: [...x.kept, ...x.units], relics: x.relics, talents: x.talents, doctrines: x.doctrines }, x.round - 1, 0);
   const p = sidePowers(D, f);
   return { ratio: p.mine / p.foes, win: x.result === 'win', round: x.round };
 }));
@@ -86,6 +88,35 @@ const shapeRates = Object.fromEntries(Object.entries(shapes).map(([k, v]) => [k,
 const monoAvg = avg(Object.entries(shapeRates).filter(([k]) => k.startsWith('6 ')).map(([, v]) => v));
 const mixedAvg = avg(Object.entries(shapeRates).filter(([k]) => k.startsWith('Mixed')).map(([, v]) => v)); // every mixed army has a front line (Knights or Rogues) and a back line
 
+// ---- Hand choice: does the top-scoring hand add the most power? ----
+const CHOICE_RUNS = 12;
+function choiceAgreement(data) {
+  let n = 0;
+  let same = 0;
+  for (let seed = 1; seed <= CHOICE_RUNS; seed++) {
+    const run = runRun(data, seed, (r) => {
+      const a = classAware(r);
+      if (a.type === 'play' && r.round.phase === 'play') {
+        const st = r.round;
+        const army = { heroes: st.heroes, units: [...st.kept, ...st.army], relics: st.relics, talents: st.talents, doctrines: st.doctrines };
+        // Candidates: the 6 best-scoring plays with different scoring cards.
+        const seen = new Set();
+        const cands = subsets(st.hand, data.round.maxPlay).map((c) => evaluate(data, c, st.doctrines)).sort((x, y) => y.score - x.score).filter((ev) => { const k = ev.scoring.map((c) => c.id).sort().join(); if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
+        const gains = cands.map((ev) => expectedGain(data, army, st.roundIndex, ev).avg);
+        const best = gains.indexOf(Math.max(...gains));
+        n++;
+        if (best === 0) same++;
+      }
+      return a;
+    });
+  }
+  return { n, rate: (100 * same) / (n || 1) };
+}
+const noTraits = { ...D, traitOf: Object.fromEntries(Object.keys(D.traitOf).map((k) => [k, []])) };
+const nowC = choiceAgreement(D);
+const beforeC = choiceAgreement(noTraits);
+const choiceSample = { n: nowC.n, now: nowC.rate, before: beforeC.rate };
+
 // ---- Other measures ----
 const allF = fights(g);
 const r1 = g.flatMap((r) => r.history[0].rarities);
@@ -103,6 +134,7 @@ const revealSec = (R.gather + R.count + R.rollBase + R.luck + R.luckResult + R.p
 const roundMin = (x) => (x.hands.length * (P.thinkPerHand + revealSec) + x.discards * P.thinkPerDiscard + P.preFight + x.time + P.postFight + P.keep + (x.result === 'win' ? P.relic : 0)) / 60;
 const runMin = avg(g.filter((r) => r.won).map((r) => r.history.reduce((s, x) => s + roundMin(x), 0)));
 
+const shopRate = (rs) => rs.reduce((n, r) => n + r.bought.length, 0) / (rs.reduce((n, r) => n + r.history.filter((x) => x.result === 'win' && x.round < D.run.rounds).length, 0) || 1);
 const verdicts = [
   ['Greedy bot clears the run', `${T.greedyClear.min}-${T.greedyClear.max}%`, pct(gClear), gClear >= T.greedyClear.min && gClear <= T.greedyClear.max],
   ['Class-aware bot clears more than greedy by', `${T.classAwareLead.min}+ points`, `${cClear - gClear >= 0 ? '+' : ''}${Math.round(cClear - gClear)} points (${pct(cClear)})`, cClear - gClear >= T.classAwareLead.min],
@@ -117,8 +149,12 @@ const verdicts = [
   ['Fight length (all fights)', `${T.fightSeconds.min}-${T.fightSeconds.max} s`, `${fightAvg.toFixed(1)} s`, fightAvg >= T.fightSeconds.min && fightAvg <= T.fightSeconds.max],
   ['Fight length with a late-run army (round 8: 2 heroes + 13 units)', `${T.fightSeconds.min}-${T.fightSeconds.max} s`, `${lateAvg.toFixed(1)} s`, lateAvg >= T.fightSeconds.min && lateAvg <= T.fightSeconds.max],
   ['Run length (estimate, cleared runs)', `${T.runMinutes.min}-${T.runMinutes.max} min`, `${runMin.toFixed(1)} min`, runMin >= T.runMinutes.min && runMin <= T.runMinutes.max],
+  ['Highest-scoring hand is also the best play', 'clearly below before', `${pct(choiceSample.now)} (was ${pct(choiceSample.before)})`, choiceSample.now <= choiceSample.before - 10],
+  ['Purchases per shop (greedy / class-aware)', `${T.purchasesPerShop.min}-${T.purchasesPerShop.max}`, `${shopRate(g).toFixed(1)} / ${shopRate(runs.classAware).toFixed(1)}`, [g, runs.classAware].every((rs) => shopRate(rs) >= T.purchasesPerShop.min && shopRate(rs) <= T.purchasesPerShop.max)],
+  ['Bounties met per round without chasing them (greedy)', `${T.bountiesPerRound.min}-${T.bountiesPerRound.max}`, avg(g.flatMap((r) => r.history.map((x) => x.bountiesMet))).toFixed(2), (() => { const v = avg(g.flatMap((r) => r.history.map((x) => x.bountiesMet))); return v >= T.bountiesPerRound.min && v <= T.bountiesPerRound.max; })()],
   ['Hero events per round', `${T.heroEventsPerRound.min}-${T.heroEventsPerRound.max}`, 'not built (cut from this pass)', null],
 ];
+const passed0 = 0;
 const passed = verdicts.filter((v) => v[3] === true).length;
 const judged = verdicts.filter((v) => v[3] !== null).length;
 
@@ -126,7 +162,7 @@ line('# Balance report');
 line();
 line(`Written by \`npm run sim\` on ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC (${((Date.now() - t0) / 1000).toFixed(0)} s). Do not edit by hand. ${N} seeded runs per bot; heroes Warden Ortha + Hexmother Vey; deck return rule "${D.returnRule}".`);
 line();
-line('Skeleton strength and fight pace were set by hand to land the greedy bot near 30% and fights near 20 s; a real tuning pass (three candidate sets) is lane C.');
+line('A lost fight ends the run. Skeleton strength, the round curve and shop prices were set by hand once (greedy near 25%, 2-3 buys a shop); no further tuning (prototype rule).');
 line();
 line('## Headline');
 line();
@@ -172,9 +208,10 @@ for (let r = 1; r <= D.run.rounds; r++) {
 }
 line();
 line(`- Fights that hit the ${D.fight.maxTime} s limit (decided on health left): ${timeouts} of ${allF.length}.`);
-const relicTaken = {};
-for (const r of runs.classAware) for (const k of r.relics) relicTaken[k] = (relicTaken[k] ?? 0) + 1;
-line(`- Relics the class-aware bot took (per run): ${Object.entries(relicTaken).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${D.relics[k].name} ${(n / N).toFixed(2)}`).join(', ')}.`);
+for (const [name, rs] of [['greedy', g], ['class-aware', runs.classAware]]) {
+  const shops = rs.reduce((n, r) => n + r.history.filter((x) => x.result === 'win' && x.round < D.run.rounds).length, 0);
+  line(`- ${name}: ${(rs.reduce((n, r) => n + r.bought.length, 0) / (shops || 1)).toFixed(2)} purchases per shop; ${avg(rs.flatMap((r) => r.history.map((x) => x.bountiesMet))).toFixed(2)} bounties met per round; ${avg(rs.flatMap((r) => r.history.map((x) => x.pay.total))).toFixed(1)} gold earned per round.`);
+}
 line();
 
 line('## Does a strong early keep decide the run? (greedy bot)');
@@ -189,6 +226,29 @@ const r1won = g.filter((r) => r.history[0].result === 'win');
 const r1lost = g.filter((r) => r.history[0].result === 'lose');
 line();
 line(`- Won round 1: ${pct(clear(r1won))} clear (${r1won.length} runs). Lost round 1: ${pct(clear(r1lost))} clear (${r1lost.length} runs).`);
+line();
+
+line('## Hand choice: is the highest-scoring hand the best play?');
+line();
+line(`At ${choiceSample.n} hand decisions (class-aware bot, ${CHOICE_RUNS} runs), "best play" = the hand that adds the most combat power to the army, given its class odds, rarity odds and trait. It is also the highest-scoring hand **${pct(choiceSample.now)}** of the time now, against **${pct(choiceSample.before)}** with traits switched off (about how the game played before this pass).`);
+line();
+
+line('## The shop: does anything dominate? (class-aware bot)');
+line();
+line('| item | bought (per run) | runs that bought it clear | runs that did not clear |');
+line('|---|---|---|---|');
+{
+  const ca = runs.classAware;
+  const ids = [...new Set(ca.flatMap((r) => r.bought.map((b) => `${b.shelf}:${b.id}`)))];
+  const rows = ids.map((k) => {
+    const [shelf, id] = k.split(':');
+    const has = ca.filter((r) => r.bought.some((b) => b.shelf === shelf && b.id === id));
+    const not = ca.filter((r) => !r.bought.some((b) => b.shelf === shelf && b.id === id));
+    const name = shelf === 'doctrine' ? `Doctrine: ${HAND_NAMES[id]}` : shelf === 'rite' ? `Rite: ${D.rites[id].name}` : shelf === 'talent' ? `Talent: ${D.talents[id].name}` : `Relic: ${D.relics[id].name}`;
+    return [name, ca.reduce((n, r) => n + r.bought.filter((b) => b.shelf === shelf && b.id === id).length, 0) / N, clear(has), clear(not), has.length];
+  }).filter((r) => r[4] >= 5).sort((a, b) => b[1] - a[1]);
+  for (const [name, per, c1, c0] of rows) line(`| ${name} | ${per.toFixed(2)} | ${pct(c1)} | ${pct(c0)} |`);
+}
 line();
 
 line('## Who does the work (greedy bot, all fights)');

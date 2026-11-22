@@ -291,3 +291,28 @@ body.fighting #bottom { display: none; }
 .co.face { color: #ffd35a; }
 .bonusname { color: #ffd35a; }
 .ucard { width: 98px; min-height: 100px; }
+
+/* ---- decision-depth pass ---- */
+.gold { color: #ffd35a; }
+#bounties { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; font-size: 12px; }
+.bounty { background: rgba(0,0,0,0.35); border: 1px solid #806a2a; border-radius: 10px; padding: 1px 8px; }
+.bounty b { color: #ffd35a; }
+.bounty.met { border-color: #7dff9a; color: #c8ffd4; }
+.relic-chip.talent { background: #2a4a5a; border-color: #6fd0ff; }
+.relic-chip.doctrine { background: #5a4a1a; border-color: #ffd35a; }
+.trait { display: inline-block; font-size: 11px; font-weight: 800; color: #0d6a8a; }
+#odds-hand .trait { color: #7fd8ff; margin-left: 8px; font-weight: 600; }
+.ucard .trait { color: #0d6a8a; }
+#shop-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.shop-item { padding: 8px; border-radius: 8px; border: 2px solid #a68bff; background: #1c1730; display: flex; flex-direction: column; gap: 3px; text-align: left; pointer-events: auto; }
+.shop-item .tag { font-size: 11px; opacity: 0.8; }
+.shop-item b { color: #f4d58d; }
+.shop-item .price { margin-top: auto; font-weight: 800; color: #ffd35a; }
+.shop-item.shelf-rite { border-color: #6fd0ff; } .shop-item.shelf-doctrine { border-color: #ffd35a; } .shop-item.shelf-talent { border-color: #7dff9a; }
+.shop-item.sold { opacity: 0.35; }
+.shop-ctl { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+.shop-ctl button, #rite-done { padding: 8px 20px; border: 1px solid #c79a4a; border-radius: 8px; background: rgba(30, 24, 50, 0.92); font-weight: 700; }
+#rite-cards { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 10px; }
+.rite-card.sel { outline: 3px solid #f4d58d; translate: 0 -8px; }
+.rite-card.sel::after { content: attr(data-order); position: absolute; top: -8px; left: -6px; background: #f4d58d; color: #222; border-radius: 50%; width: 18px; height: 18px; font: 800 12px system-ui; display: grid; place-items: center; }
+.hud[data-mode='shop'] #bottom, .hud[data-mode='rite'] #bottom { display: none; }

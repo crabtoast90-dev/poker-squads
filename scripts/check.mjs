@@ -22,7 +22,7 @@ const OUT = join(RUNS, new Date().toISOString().replace(/[:.]/g, '-'));
 const URL_ARG = process.argv.find((a) => a.startsWith('--url='))?.slice(6);
 const ONLY = process.argv.find((a) => a.startsWith('--only='))?.slice(7);
 const SEED = 1;
-const LOSE_TUNE = 'fight.enemyPower:9';
+const LOSE_TUNE = 'fight.enemyPower:12';
 const RANKUP_TUNE = 'birth.luckBase:0.95';
 const ACES = ['S14', 'H14', 'C14', 'D14', 'S13'];
 
@@ -83,7 +83,7 @@ async function run(name, script, extra = '') {
 }
 
 // Wait on the test clock until the screen is waiting for input.
-const WAITING = ['heroes', 'play', 'choose', 'ready', 'fight', 'end', 'keep', 'relic', 'over'];
+const WAITING = ['heroes', 'play', 'choose', 'ready', 'fight', 'end', 'keep', 'shop', 'rite', 'over'];
 async function settle(page, name, maxMs = 20000) {
   for (let t = 0; t < maxMs; t += 100) {
     const m = (await sq(page)).mode;
@@ -104,7 +104,10 @@ async function tap(page, a) {
   else if (a.type === 'skip') await c('#skip');
   else if (a.type === 'continue') await c('#continue');
   else if (a.type === 'keep') await c(`.keep-opt[data-id="${a.id}"]`);
-  else if (a.type === 'relic') await c(`.relic-opt[data-id="${a.id}"]`);
+  else if (a.type === 'buy') await c(`.shop-item[data-slot="${a.slot}"]`);
+  else if (a.type === 'reroll') await c('#reroll');
+  else if (a.type === 'leave') await c('#leave-shop');
+  else if (a.type === 'rite') { for (const id of a.picks) await c(`#rite-cards .card[data-id="${id}"]`); await c('#rite-done'); }
   else throw new Error(`no button for ${a.type}`);
 }
 
@@ -158,7 +161,7 @@ async function compare(page, name, data, opts = {}, want = null) {
   const node = nodeRun(data, opts);
   if (s.runPhase !== 'over') failures.push(`[${name}] run did not finish (screen ${s.mode}, run ${s.runPhase})`);
   if (s.runDigest !== node.log || s.historyDigest !== node.history) failures.push(`[${name}] run differs from Node (browser ${s.runDigest} ${s.historyDigest}, Node ${node.log} ${node.history})`);
-  else summaries.push(`[${name}] whole run through the buttons matches Node: ${node.rounds} rounds, ${node.won ? 'cleared' : 'lost'}; relics ${s.relics.join(', ') || 'none'}; kept ${s.kept}`);
+  else summaries.push(`[${name}] whole run through the buttons matches Node: ${node.rounds} rounds, ${node.won ? 'cleared' : 'lost'}; bought ${s.bought} (relics ${s.relics.join(', ') || 'none'}; talents ${s.talents.join(', ') || 'none'}; doctrines ${JSON.stringify(s.doctrines)}); gold left ${s.gold}; kept ${s.kept}`);
   if (want !== null && s.won !== want) failures.push(`[${name}] expected ${want ? 'a clear' : 'a loss'}`);
   summaries.push(`## ${name}\n${await page.evaluate(() => window.__game.stateText())}`);
 }

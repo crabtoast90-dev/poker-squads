@@ -23,7 +23,9 @@ Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.
   *Done when:* BALANCE.md shows the class-aware bot clearing 10+ points more than greedy (or Brian's new class target).
 
 ## Next: decisions between hands
-- [ ] **D2. A decision layer between hands or rounds.** Brian is brainstorming it in the design room from `DESIGN-PROMPT-BETWEEN-HANDS.md`. Build the concept that comes back.
+- [x] **D2. Decision-depth pass.** Hand traits, bounties, gold, the shop (rites, doctrines, hero talents, relics, reroll); free relic pick and lives removed (a loss ends the run).
+- [ ] **D3. Hand choice barely moved.** The highest-scoring hand is still the best play 54% of the time (55% with traits off): trait value climbs with hand rank, so the best-scoring hand usually carries the best trait too. Ideas: make low-hand traits matter for specific classes (Swift Rogues, Sturdy Knights), bounties that pay for low hands, or rarity that depends less on raw score.
+- [ ] **D4. Fights got short.** All fights average 13 s (target 15-25 s): traits and shop power end fights fast.
 
 ## Lane A: the full 8-round run with deck return (A1 done in the classes pass)
 - [x] **A1. Run on screen.** After the fight: lives (3), round counter, next round's skeletons, round 8 boss, run won/lost screens. The 6 units become cards (suit, number, rarity bonus chips) and replace deck cards by the rule in `returnRule`. Files: `src/view/squads-view.js`, `src/main.js`, `index.html`, `src/style.css`, `scripts/check.mjs`; SHARED `src/squads/sim.js`, `run.js`.

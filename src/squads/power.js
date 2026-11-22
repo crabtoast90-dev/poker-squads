@@ -32,35 +32,35 @@ function sideStats(data, mine, theirs, f) {
   let ehp = 0;
   let dps = 0;
   let shieldRate = 0;
-  const poisoners = mine.filter((u) => u.bonus === 'poison').length || 1;
+  const poisoners = mine.filter((u) => u.bonuses.includes('poison')).length || 1;
   for (const u of mine) {
     const cut = Math.min(data.fight.armorCap, (data.combatPower.armorWorth * u.armor) / Math.max(1, avgHit));
-    ehp += u.maxHp / (1 - cut * (1 - dotShare));
-    const raw = u.atk * (1 + u.crit * (u.critMult - 1));
+    ehp += (u.maxHp + u.shield) / (1 - cut * (1 - dotShare));
+    const raw = u.atk * u.dmgMult * (1 + u.crit * (u.critMult - 1));
     let hit = Math.max(raw * (1 - data.fight.armorCap), raw - avgArmor);
-    if (u.bonus === 'ambush') hit *= 1.05;
+    if (u.bonuses.includes('ambush')) hit *= 1.05;
     if (u.cls === 'rogue' && heroes.includes('rogue')) hit *= 1.12; // attacks again after a kill
     if (u.cls === 'rogue' && relics.includes('rogueMark')) hit *= 1.05;
     let d = hit / u.interval;
-    if (u.bonus === 'splash') d *= 1 + B.witch.splash.share * 0.8;
+    if (u.bonuses.includes('splash')) d *= 1 + B.witch.splash.share * 0.8;
     // A Witch keeps Burn going on about burnFor / interval targets (it spreads Burn), as many as there are.
     if (u.burn) d += u.burn * Math.min(theirs.length || 1, u.burnFor / u.interval) * (heroes.includes('witch') ? 1.15 : 1);
-    if (u.bonus === 'poison') d += B.rogue.poison.dps * f.ctx.p.ds * u.power * Math.min(B.rogue.poison.max / poisoners, B.rogue.poison.for / u.interval);
-    if (u.bonus === 'chill') d *= 1.15; // its target hits back slower
+    if (u.bonuses.includes('poison')) d += B.rogue.poison.dps * f.ctx.p.ds * u.power * Math.min(B.rogue.poison.max / poisoners, B.rogue.poison.for / u.interval);
+    if (u.bonuses.includes('chill')) d *= 1.15; // its target hits back slower
     if (relics.includes('witchSear') && theirs.length) d *= 1.08;
     dps += d;
     if (u.shieldEvery) {
-      const per = u.shieldAmt * (1 + (u.bonus === 'mend' ? B.priestess.mend.heal : 0));
+      const per = u.shieldAmt * (1 + (u.bonuses.includes('mend') ? B.priestess.mend.heal : 0));
       ehp += (data.combatPower.shieldWorth * per * T) / u.shieldEvery;
       shieldRate += 1 / u.shieldEvery;
     }
-    if (u.bonus === 'taunt') ehp += u.maxHp * 0.15; // soaks hits meant for softer allies
+    if (u.bonuses.includes('taunt')) ehp += u.maxHp * 0.15; // soaks hits meant for softer allies
   }
   // Damage from holding a Shield (Bless, Mother Selune): about 3 s of cover per Shield cast.
   const cover = Math.min(1, (shieldRate * 3) / (mine.length || 1));
   let shieldedBonus = 0;
   if (heroes.includes('priestess')) shieldedBonus += data.heroes.priestess.shieldedDmg;
-  if (mine.some((u) => u.bonus === 'bless')) shieldedBonus += B.priestess.bless.dmg * 0.5;
+  if (mine.some((u) => u.bonuses.includes('bless'))) shieldedBonus += B.priestess.bless.dmg * 0.5;
   dps *= 1 + shieldedBonus * cover;
   if (relics.includes('knightOath')) ehp *= 1 + 0.04 * mine.filter((u) => u.cls === 'knight').length;
   if (relics.includes('priestThorn')) dps *= 1 + 0.1 * cover;
@@ -104,7 +104,7 @@ export function expectedGain(data, army, roundIndex, ev, luck = 0) {
       const pool = card.rank >= data.birth.faceFrom ? Object.keys(data.bonuses[{ S: 'knight', H: 'priestess', C: 'witch', D: 'rogue' }[card.suit]]) : [null];
       let g = 0;
       for (const bonus of pool) {
-        const u = makeUnit(data, card, r, 'x', bonus);
+        const u = makeUnit(data, card, r, 'x', bonus, ev.hand);
         g += (armyPowers(data, { ...army, units: [...army.units, u] }, roundIndex).mine - base) / pool.length;
       }
       gain += (g * odds[r]) / ev.scoring.length;

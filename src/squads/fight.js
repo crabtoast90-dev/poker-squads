@@ -20,58 +20,78 @@ function lineUp(members, side, data) {
   }
 }
 
-// One fighter with its class mechanic, face bonus, hero skills and relics folded into its numbers.
+// One fighter with its class mechanic, face bonuses, hand trait, hero skills, relics and
+// talents folded into its numbers.
 function fighter(data, id, side, o, ctx) {
   const c = data.classes[o.cls];
   const ds = ctx.ds;
   const P = o.power;
-  const b = o.bonus ? data.bonuses[o.cls][o.bonus] : null;
+  const bonuses = [o.bonus, o.bonus2].filter(Boolean);
+  const bsum = (k) => bonuses.reduce((s, x) => s + (data.bonuses[o.cls][x][k] ?? 0), 0);
   const has = (r) => ctx.relics.includes(r);
   const hero = (k) => ctx.heroes.includes(k);
+  // Hand trait strength: x (1 + perLevel x (doctrine level - 1)).
+  const traits = o.traits ?? [];
+  const tk = 1 + data.doctrine.traitPerLevel * ((ctx.doctrines[o.hand] ?? 1) - 1);
+  const T = data.traits;
+  const tr = (k) => traits.includes(k);
+  const statMult = (tr('veteran') ? 1 + T.veteran.stats * tk : 1) * (tr('champion') ? 1 + T.champion.stats * tk : 1);
+  const mech = tr('devout') ? 1 + T.devout.mech * tk : 1;
   const u = {
     id, side, cls: o.cls, row: c.row, name: o.name, hero: !!o.hero, rank: o.rank, suit: o.suit, rarity: o.rarity,
-    power: P, bonus: o.bonus ?? null, kept: !!o.kept,
-    maxHp: H(c.hp * P * (o.hpMult ?? 1)), shield: 0, alive: true,
-    atk: c.atk * ds * P * (o.atkMult ?? 1), interval: c.interval, range: c.range, speed: c.speed,
+    power: P, bonus: o.bonus ?? null, bonuses, traits, hand: o.hand ?? null, kept: !!o.kept,
+    maxHp: H(c.hp * P * (o.hpMult ?? 1) * statMult * (tr('sturdy') ? 1 + T.sturdy.hp * tk : 1)), shield: 0, alive: true,
+    atk: c.atk * ds * P * (o.atkMult ?? 1) * statMult, interval: c.interval / (tr('swift') ? 1 + T.swift.speed * tk : 1), range: c.range, speed: c.speed,
     armor: 0, crit: 0, critMult: 2, burn: 0, burnFor: 0, shieldAmt: 0, shieldEvery: 0,
+    banner: tr('banner') ? T.banner.dmg * tk : 0, guard: tr('guardian') ? T.guardian.shield * tk * ds * P : 0, dmgMult: 1,
     cd: 0.3 + (id.length % 3) * 0.15, shieldCd: 1.2, first: true, sureCrit: false,
     burning: null, poison: [], chill: 0, blessed: 0, dotAcc: 0, dotT: 0,
     x: 0, z: 0, target: null, dealt: 0, healed: 0,
   };
   u.hp = u.maxHp;
-  if (o.cls === 'knight') u.armor = c.armor * ds * P * (1 + (b?.armor ?? 0)) * (has('knightPlate') ? 1 + data.relics.knightPlate.armor : 1);
+  if (o.cls === 'knight') u.armor = c.armor * ds * P * mech * (1 + bsum('armor')) * (has('knightPlate') ? 1 + data.relics.knightPlate.armor : 1);
   u.ownArmor = R(u.armor);
   if (o.cls === 'rogue') {
-    u.crit = c.crit + (b?.crit ?? 0) + (has('rogueEdge') ? data.relics.rogueEdge.crit : 0);
+    u.crit = Math.min(0.9, (c.crit + bsum('crit') + (has('rogueEdge') ? data.relics.rogueEdge.crit : 0)) * mech);
     u.critMult = hero('rogue') ? data.heroes.rogue.critMult : c.critMult;
   }
   if (o.cls === 'witch') {
-    u.burn = c.burn * ds * P * (1 + (b?.burn ?? 0)) * (hero('witch') ? 1 + data.heroes.witch.burn : 1);
+    u.burn = c.burn * ds * P * mech * (1 + bsum('burn')) * (hero('witch') ? 1 + data.heroes.witch.burn : 1);
     u.burnFor = c.burnFor * (has('witchKindle') ? data.relics.witchKindle.burnFor : 1);
   }
   if (o.cls === 'priestess') {
-    u.shieldAmt = c.shield * ds * P * (1 + (b?.shield ?? 0)) * (has('priestWard') ? 1 + data.relics.priestWard.shield : 1);
+    u.shieldAmt = c.shield * ds * P * mech * (1 + bsum('shield')) * (has('priestWard') ? 1 + data.relics.priestWard.shield : 1);
     u.shieldEvery = c.shield ? c.shieldEvery : 0;
   }
   return u;
 }
 
-// Army-wide effects after everyone is built: Chivalry and Warden Ortha share Armor.
+// Army-wide effects after everyone is built: Chivalry and Warden Ortha share Armor (talents
+// can bend that), Banners lift their class's damage, Guardians and Morning Prayer shield all.
 function armyAuras(data, list, ctx) {
+  const tal = (k) => ctx.talents.includes(k);
   let shared = 0;
+  let ortha = 0;
   for (const k of list) {
-    if (k.cls !== 'knight') continue;
-    if (k.bonus === 'chivalry') shared += k.armor * data.bonuses.knight.chivalry.share;
-    if (ctx.heroes.includes('knight')) shared += k.armor * data.heroes.knight.armorShare;
+    if (k.cls === 'knight' && k.bonuses.includes('chivalry')) shared += k.armor * data.bonuses.knight.chivalry.share;
+    if (!ctx.heroes.includes('knight')) continue;
+    if (k.cls === 'knight') ortha += k.armor * data.heroes.knight.armorShare;
+    if (k.cls === 'rogue' && tal('knightRogues')) ortha += data.classes.knight.armor * ctx.ds * k.power * data.heroes.knight.armorShare;
   }
-  for (const u of list) u.armor = R(u.armor + shared);
+  const guard = list.reduce((s, u) => s + u.guard, 0);
+  const dawn = tal('priestDawn') ? data.talents.priestDawn.shield * ctx.ds * data.heroes.priestess.power : 0;
+  for (const u of list) {
+    u.armor = R(u.armor + shared + ortha * (tal('knightRear') && u.row === 'back' ? 2 : 1));
+    u.dmgMult = 1 + list.reduce((s, b) => s + (b.banner && b.cls === u.cls ? b.banner : 0), 0);
+    u.shield = H(Math.min(u.maxHp * data.fight.shieldCap, guard + dawn));
+  }
 }
 
 // army: { heroes: [key, key], units: [unit, ...] (kept first), relics: [id, ...] }
 export function createFight(data, army, roundIndex, seed) {
   // Damage grows each round so bigger late armies still finish in about 20 s.
   const ds = data.fight.damageScale * (1 + data.fight.damagePerRound * roundIndex);
-  const ctx = { heroes: army.heroes, relics: army.relics ?? [], ds };
+  const ctx = { heroes: army.heroes, relics: army.relics ?? [], talents: army.talents ?? [], doctrines: army.doctrines ?? {}, ds };
   const mine = [];
   army.heroes.forEach((key, s) => {
     const h = data.heroes[key];
@@ -81,14 +101,14 @@ export function createFight(data, army, roundIndex, seed) {
   armyAuras(data, mine, ctx);
   lineUp(mine, 'p', data);
   const er = data.enemyRounds[Math.min(roundIndex, data.enemyRounds.length - 1)];
-  const ectx = { heroes: [], relics: [], ds };
+  const ectx = { heroes: [], relics: [], talents: [], doctrines: {}, ds };
   const foes = er.units.map((k, i) => {
     const sk = data.skeletons[k];
     return fighter(data, `e${i}`, 'e', { cls: sk.cls, name: sk.name, bonus: sk.bonus, power: er.power * data.fight.enemyPower, hpMult: sk.hpMult, atkMult: sk.atkMult }, ectx);
   });
   armyAuras(data, foes, ectx);
   lineUp(foes, 'e', data);
-  return { rng: makeRng(seed), units: [...mine, ...foes], ctx: { p: ctx, e: ectx }, time: 0, ticks: 0, result: null, events: [] };
+  return { rng: makeRng(seed), units: [...mine, ...foes], ctx: { p: ctx, e: ectx }, time: 0, ticks: 0, result: null, events: [], gold: 0 };
 }
 
 const alive = (f, side) => f.units.filter((u) => u.alive && u.side === side);
@@ -104,12 +124,20 @@ function nearest(from, list) {
 }
 const sideHas = (f, side, relic) => f.ctx[side].relics.includes(relic);
 const sideHero = (f, side, key) => f.ctx[side].heroes.includes(key);
+const sideTalent = (f, side, key) => f.ctx[side].talents.includes(key);
+const other = (side) => (side === 'p' ? 'e' : 'p');
+// Smell of Smoke: Rogues gain Crit for each burning enemy.
+function critChance(f, u) {
+  if (!sideTalent(f, u.side, 'rogueSense')) return u.crit;
+  const burning = f.units.filter((e) => e.alive && e.side !== u.side && e.burning).length;
+  return Math.min(0.95, u.crit + burning * 0.05);
+}
 
 // Who u attacks: a Taunt in reach first; Rogues the back line; everyone else the front line
 // until it falls (an army with no front line has its back line hit from the start).
 function pickTarget(data, f, u, foes) {
   const tr = data.bonuses.knight.taunt.radius;
-  const taunts = foes.filter((e) => e.bonus === 'taunt' && dist2(u, e) <= tr * tr);
+  const taunts = foes.filter((e) => e.bonuses.includes('taunt') && dist2(u, e) <= tr * tr);
   if (taunts.length) return nearest(u, taunts);
   const cur = u.target && foes.find((e) => e.id === u.target);
   const front = foes.filter((e) => e.row === 'front');
@@ -131,6 +159,7 @@ function pickTarget(data, f, u, foes) {
 function wound(data, f, from, to, amount, out, kind) {
   if (!to.alive || amount <= 0) return 0;
   if (to.burning && sideHas(f, from.side, 'witchSear')) amount *= 1 + data.relics.witchSear.dmg;
+  if (kind === 'hit' && to.cls === 'rogue' && sideTalent(f, to.side, 'rogueCover') && f.units.some((k) => k.alive && k.side === to.side && k.cls === 'knight')) amount *= 1 - data.talents.rogueCover.cut;
   amount = H(amount);
   const hadShield = to.shield;
   const soak = Math.min(to.shield, amount);
@@ -141,6 +170,8 @@ function wound(data, f, from, to, amount, out, kind) {
   from.dealt = H(from.dealt + real + soak);
   if (out) out.push([to.id, Math.round(amount)]);
   else to.dotAcc += amount;
+  // Last Light: a Shield that breaks heals its holder.
+  if (hadShield > 0 && to.shield <= 0 && to.hp > 0 && sideTalent(f, to.side, 'priestLight')) to.hp = H(Math.min(to.maxHp, to.hp + hadShield * data.talents.priestLight.heal));
   // Thorned Ward: a Shield that breaks hits back for its amount.
   if (hadShield > 0 && to.shield <= 0 && kind === 'hit' && sideHas(f, to.side, 'priestThorn') && from.alive) {
     wound(data, f, to, from, hadShield, null, 'thorn');
@@ -163,6 +194,7 @@ function die(data, f, u, by, kind = 'hit') {
   // Last Oath: a fallen Knight's Armor goes to its allies.
   if (u.cls === 'knight' && sideHas(f, u.side, 'knightOath')) for (const a of friends) a.armor = R(a.armor + u.ownArmor);
   // Killer's Mark and Shade Corvin: a Rogue kill.
+  if (kind === 'hit' && by.cls === 'rogue' && by.side !== u.side && by.side === 'p' && sideTalent(f, 'p', 'rogueBounty')) f.gold += 1;
   if (kind === 'hit' && by.cls === 'rogue' && by.side !== u.side && by.alive) {
     if (sideHas(f, by.side, 'rogueMark')) by.sureCrit = true;
     if (sideHero(f, by.side, 'rogue')) by.cd = 0;
@@ -170,7 +202,10 @@ function die(data, f, u, by, kind = 'hit') {
 }
 
 // Armor takes a flat amount off each hit, but never more than armorCap of it.
-const afterArmor = (data, dmg, t) => Math.max(1, dmg * (1 - data.fight.armorCap), dmg - t.armor);
+const afterArmor = (data, dmg, t, f) => {
+  const steel = f && t.cls === 'knight' && t.shield > 0 && sideTalent(f, t.side, 'priestSteel') ? 1 + data.talents.priestSteel.armor : 1;
+  return Math.max(1, dmg * (1 - data.fight.armorCap), dmg - t.armor * steel);
+};
 
 // Burn: the stronger Burn stays (a weaker one only tops up the time left).
 function ignite(t, burn) {
@@ -184,24 +219,27 @@ function attack(data, f, u, t, foes) {
   let dmg = u.atk * (1 + (f.rng() * 2 - 1) * data.fight.spread);
   let crit = false;
   if (u.cls === 'rogue') {
-    crit = u.sureCrit || (u.first && u.bonus === 'ambush') || f.rng() < u.crit;
+    crit = u.sureCrit || (u.first && u.bonuses.includes('ambush')) || f.rng() < critChance(f, u);
     u.sureCrit = false;
-    if (crit) dmg *= u.critMult;
+    if (crit) dmg *= t.burning && sideTalent(f, u.side, 'witchCrit') ? Math.max(3, u.critMult) : u.critMult;
   }
   u.first = false;
+  dmg *= u.dmgMult;
   if (u.blessed) dmg *= 1 + u.blessed;
   if (u.shield > 0 && sideHero(f, u.side, 'priestess')) dmg *= 1 + data.heroes.priestess.shieldedDmg;
   const hits = [];
-  wound(data, f, u, t, afterArmor(data, dmg, t), hits, 'hit');
+  wound(data, f, u, t, afterArmor(data, dmg, t, f), hits, 'hit');
+  // Spiked Plate: allies with Armor reflect part of a hit.
+  if (t.armor > 0 && u.alive && sideTalent(f, t.side, 'knightSpikes')) wound(data, f, t, u, dmg * data.talents.knightSpikes.reflect, null, 'thorn');
   if (u.cls === 'witch') {
-    ignite(t, { dps: u.burn, left: u.burnFor, from: u.id });
-    if (u.bonus === 'chill' && t.alive) t.chill = B.witch.chill.for;
-    if (u.bonus === 'splash') {
+    ignite(t, { dps: u.burn * (u.shield > 0 && sideTalent(f, u.side, 'witchWard') ? 1 + data.talents.witchWard.burn : 1), left: u.burnFor, from: u.id });
+    if (u.bonuses.includes('chill') && t.alive) t.chill = B.witch.chill.for;
+    if (u.bonuses.includes('splash')) {
       const r2 = B.witch.splash.radius ** 2;
-      for (const e of foes) if (e !== t && e.alive && dist2(e, t) <= r2) wound(data, f, u, e, afterArmor(data, dmg * B.witch.splash.share, e), hits, 'hit');
+      for (const e of foes) if (e !== t && e.alive && dist2(e, t) <= r2) wound(data, f, u, e, afterArmor(data, dmg * B.witch.splash.share, e, f), hits, 'hit');
     }
   }
-  if (u.bonus === 'poison' && t.alive) {
+  if (u.bonuses.includes('poison') && t.alive) {
     t.poison.push({ dps: B.rogue.poison.dps * f.ctx[u.side].ds * u.power, left: B.rogue.poison.for, from: u.id });
     if (t.poison.length > B.rogue.poison.max) t.poison.shift();
   }
@@ -216,8 +254,8 @@ function castShield(data, f, u, friends) {
   const amt = H(Math.min(u.shieldAmt, Math.max(0, cap - low.shield)));
   low.shield = H(low.shield + amt);
   let heal = 0;
-  if (u.bonus === 'mend') { heal = H(Math.min(low.maxHp - low.hp, u.shieldAmt * data.bonuses.priestess.mend.heal)); low.hp = H(low.hp + heal); }
-  if (u.bonus === 'bless') low.blessed = data.bonuses.priestess.bless.dmg;
+  if (u.bonuses.includes('mend')) { heal = H(Math.min(low.maxHp - low.hp, u.shieldAmt * data.bonuses.priestess.mend.heal)); low.hp = H(low.hp + heal); }
+  if (u.bonuses.includes('bless')) low.blessed = data.bonuses.priestess.bless.dmg;
   u.healed = H(u.healed + amt + heal);
   f.events.push({ t: f.ticks, type: 'shield', who: u.id, target: low.id, amount: Math.round(amt), heal: Math.round(heal) });
 }
@@ -249,7 +287,8 @@ export function stepFight(data, f) {
     if (!u.alive) continue;
     const foes = alive(f, u.side === 'p' ? 'e' : 'p');
     if (!foes.length) break;
-    u.cd -= u.chill > 0 ? dt / (1 + data.bonuses.witch.chill.slow) : dt;
+    const smoke = u.burning && sideTalent(f, other(u.side), 'witchSmoke') ? data.talents.witchSmoke.slow : 0;
+    u.cd -= dt / (1 + (u.chill > 0 ? data.bonuses.witch.chill.slow : 0) + smoke);
     if (u.shieldEvery) {
       u.shieldCd -= dt;
       if (u.shieldCd <= 0) { u.shieldCd = u.shieldEvery; castShield(data, f, u, alive(f, u.side)); }

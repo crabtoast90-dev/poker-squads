@@ -1,11 +1,12 @@
 // The run on screen, all cards: pick 2 heroes; each round play 6 hands (odds, power gain,
 // the birth reveal with its luck roll and face bonus), watch the fight (cards trading hits),
-// keep 1 of the round's 6 units, pick a relic after a win; 8 rounds, 3 lives.
+// after a win keep 1 of the round's 6 units and visit the shop; a lost fight ends the run.
 // No rules here: every outcome comes from the sim (src/squads/); this file stages it on the
 // game clock, so test runs repeat exactly and match Node.
 import { RARITIES, CLASS_OF } from '../squads/data.js';
 import { preview, armyForFight, roundDigest, rarityOdds } from '../squads/sim.js';
-import { createRun, runAct } from '../squads/run.js';
+import { createRun, runAct, bountyText, bountyMet } from '../squads/run.js';
+import { HAND_NAMES } from '../squads/poker.js';
 import { armyPowers, unitPower, expectedGain } from '../squads/power.js';
 import { createFight, stepFight, topUnit } from '../squads/fight.js';
 import { greedy } from '../squads/bots.js';
@@ -24,7 +25,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
   const run = createRun(data, seed, { top, relics });
   let st = null; // the current round
   const hudEl = $('sq-hud');
-  let mode = 'heroes'; // heroes | play | discard | choose | reveal | hop | ready | fight | end | keep | relic | over
+  let mode = 'heroes'; // heroes | play | discard | choose | reveal | hop | ready | fight | end | keep | shop | rite | over
   let selected = [];
   let heroPicks = [];
   let timeline = null;
@@ -43,7 +44,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
   const luck = () => (run.relics.includes('pokerLuck') ? data.relics.pokerLuck.luck : 0);
 
   hudEl.hidden = false;
-  for (const id of ['sq-end', 'reveal', 'battle', 'fight-ctl', 'choice', 'keep', 'relic', 'run-over']) $(id).hidden = true;
+  for (const id of ['sq-end', 'reveal', 'battle', 'fight-ctl', 'choice', 'keep', 'shop', 'rite', 'run-over']) $(id).hidden = true;
   $('again').onclick = onRestart;
   $('new-run').onclick = onRestart;
 
@@ -75,7 +76,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     speed = 1;
     $('speed').textContent = '1x';
     hudEl.classList.remove('fighting');
-    for (const id of ['sq-end', 'keep', 'relic']) $(id).hidden = true;
+    for (const id of ['sq-end', 'keep', 'shop', 'rite']) $(id).hidden = true;
     $('board').hidden = false;
     $('bottom').hidden = false;
     drawBoard();
@@ -97,7 +98,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     el.style.setProperty('--suit', SUIT_COLOR[suit]);
     const head = u.side === 'e' ? `<b class="rk">☠<small>${SUIT_SYMBOL[suit]}</small></b>` : u.hero ? `<b class="rk">♛${SUIT_SYMBOL[suit]}</b>` : `<b class="rk">${rankLabel(u.rank)}${SUIT_SYMBOL[suit]}${u.kept ? '<small>★</small>' : ''}</b>`;
     const name = u.side === 'e' || u.hero ? u.name : `${RARITY_NAME[u.rarity]} ${data.classes[u.cls].name}`;
-    const bonus = u.bonus ? `<em>${data.bonuses[u.cls][u.bonus].name}</em>` : '';
+    const bonus = (u.bonuses ?? []).map((k) => `<em>${data.bonuses[u.cls][k].name}</em>`).join('') + (u.traits?.length ? `<span class="trait">${u.traits.map((t) => data.traits[t].name).join(' + ')}${u.hand && (run.doctrines[u.hand] ?? 1) > 1 ? ` Lv${run.doctrines[u.hand]}` : ''}</span>` : '');
     el.innerHTML = `${head}<span class="nm">${name}</span><span class="mech">${MECH_ICON[u.cls]} ${mechText(u)}</span>${bonus}${worth != null ? `<span class="pw">+${worth} power</span>` : ''}<span class="st">♥ <b class="hpn">${Math.round(u.hp)}</b> ⚔ ${u.atk.toFixed(0)}</span><span class="hp"><i></i></span>`;
     return el;
   }
@@ -131,11 +132,19 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     const gap = p.mine - p.foes;
     $('verdict').innerHTML = gap >= 0 ? `<b class="ahead">Ahead by ${gap}</b>: the stronger army usually wins` : `<b class="behind">Behind by ${-gap}</b>${st.handsLeft ? `: ${st.handsLeft} hand${st.handsLeft === 1 ? '' : 's'} left to close it` : ''}`;
     $('round-no').textContent = `${st.roundIndex + 1}/${data.run.rounds}`;
-    $('lives').textContent = '♥'.repeat(run.lives) + '♡'.repeat(data.run.lives - run.lives);
+    $('gold').textContent = run.gold;
+    $('bounties').innerHTML = run.bounties.map((b) => {
+      const met = bountyMet(data, b, st, fight?.result ? fight : null);
+      return `<span class="bounty${met ? ' met' : ''}">${met ? '✔' : '◇'} ${bountyText(data, b)} <b>${b.gold}g</b></span>`;
+    }).join('');
     $('hands-left').textContent = st.handsLeft;
     $('discards-left').textContent = st.discardsLeft;
     $('units-made').textContent = `${st.army.length}/${data.round.armySize}`;
-    $('relics').innerHTML = run.relics.map((k) => `<span class="relic-chip" title="${data.relics[k].text}">${data.relics[k].name}</span>`).join('') || '<span class="none">no relics yet</span>';
+    $('relics').innerHTML = [
+      ...run.relics.map((k) => `<span class="relic-chip" title="${data.relics[k].text}">${data.relics[k].name}</span>`),
+      ...run.talents.map((k) => `<span class="relic-chip talent" title="${data.talents[k].text}">${data.talents[k].name}</span>`),
+      ...Object.entries(run.doctrines).map(([h, l]) => `<span class="relic-chip doctrine">${HAND_NAMES[h]} Lv ${l}</span>`),
+    ].join('') || '<span class="none">no relics, talents or doctrines yet</span>';
     $('heroes-line').textContent = run.heroes.map((h) => data.heroes[h].name).join(' + ');
   }
 
@@ -166,7 +175,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
   function drawOdds() {
     if (!st) return;
     const cards = selected.map((id) => st.hand.find((c) => c.id === id)).filter(Boolean);
-    const pv = cards.length ? preview(data, cards, run.relics) : null;
+    const pv = cards.length ? preview(data, cards, run.relics, run.doctrines) : null;
     $('play').disabled = mode !== 'play' || !pv || st.handsLeft <= 0;
     $('discard').disabled = mode !== 'play' || !pv || st.discardsLeft <= 0;
     $('odds').classList.toggle('empty', !pv);
@@ -175,7 +184,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
       $('odds-hand').textContent = 'Pick up to 5 cards';
       return;
     }
-    $('odds-hand').textContent = pv.name;
+    $('odds-hand').innerHTML = `${pv.name}${pv.level > 1 ? ` <small>Lv ${pv.level}</small>` : ''} <span class="trait">${pv.traits.length ? `Trait: ${pv.traits.map((t) => `${data.traits[t].name} (${data.traits[t].text})`).join(' + ')}` : 'no trait'}</span>`;
     $('odds-score').innerHTML = `<b class="chips">${pv.chips}</b> × <b class="mult">${pv.mult}</b> = <b>${pv.score}</b>`;
     const faces = pv.scoring.filter((c) => c.rank >= data.birth.faceFrom).length;
     $('odds-class').innerHTML = Object.entries(pv.classOdds).sort((a, b) => b[1] - a[1])
@@ -511,7 +520,8 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     $('sq-result').textContent = fight.result === 'win' ? 'Victory' : 'Defeat';
     $('sq-result').className = fight.result;
     const desc = t.hero ? `${t.name} (hero)` : `${RARITY_NAME[t.rarity]} ${rankLabel(t.rank)}${SUIT_SYMBOL[t.suit]} ${data.classes[t.cls].name}`;
-    $('sq-mvp').innerHTML = `Carried by <b>${desc}</b>: ${Math.round((100 * (t.dealt + t.healed)) / tot)}% of your army's work · ${fight.time.toFixed(1)} s${timeout ? ' (time ran out: decided on health left)' : ''}${fight.result === 'lose' ? `<br>You lose a life (${run.lives - 1} left).` : ''}`;
+    $('sq-mvp').innerHTML = `Carried by <b>${desc}</b>: ${Math.round((100 * (t.dealt + t.healed)) / tot)}% of your army's work · ${fight.time.toFixed(1)} s${timeout ? ' (time ran out: decided on health left)' : ''}${fight.result === 'lose' ? '<br><b>The run is over.</b>' : `<br>Gold: win ${data.gold.win} + unused discards ${st.discardsLeft}${run.bounties.filter((b) => bountyMet(data, b, st, fight)).map((b) => ` + bounty ${b.gold}`).join('')}`}`;
+    drawBoard();
     $('sq-end').hidden = false;
     if (fight.result === 'win') audio.win(); else audio.lose();
   }
@@ -542,39 +552,88 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
     runAct(run, { type: 'keep', id });
     $('keep').hidden = true;
     audio.hop();
-    if (run.phase === 'relic') return showRelics();
-    if (run.phase === 'over') return showOver();
-    startRound();
+    showShop();
   }
-  function showRelics() {
-    setMode('relic');
-    $('relic').hidden = false;
+
+  // ---- The shop: rites, doctrines, hero talents, relics; reroll; leave ----
+  const SHELF = { rite: 'Rite', doctrine: 'Doctrine', talent: 'Hero talent', relic: 'Relic' };
+  function itemText(it) {
+    if (it.shelf === 'rite') return [data.rites[it.id].name, data.rites[it.id].text];
+    if (it.shelf === 'doctrine') { const l = run.doctrines[it.id] ?? 1; const tr = data.traitOf[it.id].map((t) => data.traits[t].name).join(' + '); return [`${HAND_NAMES[it.id]} Lv ${l + 1}`, `+${data.doctrine.chips} chips, +${data.doctrine.mult} mult${tr ? `; ${tr} stronger` : ''}`]; }
+    if (it.shelf === 'talent') { const t = data.talents[it.id]; return [t.name, `${data.heroes[t.hero].name}: ${t.text}`]; }
+    const r = data.relics[it.id];
     const heroCls = run.heroes.map((h) => data.heroes[h].cls);
-    $('relic-opts').innerHTML = run.offers.map((k) => {
-      const r = data.relics[k];
-      const tag = r.cls === 'poker' ? 'Poker' : `${data.classes[r.cls].name}${heroCls.includes(r.cls) ? ' · matches your hero' : ''}`;
-      return `<button class="relic-opt" data-id="${k}"><b>${r.name}</b><span class="tag">${tag}</span><span>${r.text}</span></button>`;
+    return [r.name, `${r.text}${heroCls.includes(r.cls) ? ' (matches your hero)' : ''}`];
+  }
+  function showShop() {
+    setMode('shop');
+    $('shop').hidden = false;
+    $('rite').hidden = true;
+    $('shop-gold').textContent = run.gold;
+    $('shop-items').innerHTML = run.shop.items.map((it) => {
+      const [name, text] = itemText(it);
+      return `<button class="shop-item shelf-${it.shelf}${it.sold ? ' sold' : ''}" data-slot="${it.slot}" ${it.sold || it.price > run.gold ? 'disabled' : ''}><span class="tag">${SHELF[it.shelf]}</span><b>${name}</b><span>${text}</span><span class="price">${it.sold ? 'bought' : `${it.price}g`}</span></button>`;
     }).join('');
-    for (const el of $('relic-opts').querySelectorAll('.relic-opt')) el.onclick = () => takeRelic(el.dataset.id);
+    for (const el of $('shop-items').querySelectorAll('.shop-item')) el.onclick = () => buy(Number(el.dataset.slot));
+    $('reroll').textContent = `Reroll (${run.shop.rerollPrice}g)`;
+    $('reroll').disabled = run.gold < run.shop.rerollPrice;
+    drawBoard();
   }
-  function takeRelic(id) {
-    if (mode !== 'relic') return;
-    runAct(run, { type: 'relic', id });
-    $('relic').hidden = true;
+  function buy(slot) {
+    if (mode !== 'shop') return;
+    runAct(run, { type: 'buy', slot });
     audio.upgrade(2);
-    if (run.phase === 'over') return showOver();
-    startRound();
+    if (run.phase === 'rite') showRite();
+    else showShop();
   }
+  $('reroll').onclick = () => { if (mode === 'shop' && run.gold >= run.shop.rerollPrice) { runAct(run, { type: 'reroll' }); audio.whoosh(); showShop(); } };
+  $('leave-shop').onclick = () => { if (mode !== 'shop') return; runAct(run, { type: 'leave' }); $('shop').hidden = true; if (run.phase === 'over') return showOver(); startRound(); };
+
+  // A rite: 8 cards dealt from the deck; choose among them (Echo: the first pick is copied).
+  let ritePicks = [];
+  function showRite() {
+    setMode('rite');
+    ritePicks = [];
+    $('shop').hidden = true;
+    $('rite').hidden = false;
+    const r = data.rites[run.rite.key];
+    $('rite-title').textContent = r.name;
+    $('rite-text').textContent = r.kind === 'echo' ? 'Pick the card to copy first, then up to 2 cards to turn into it.' : `Pick ${r.text}.`;
+    drawRite();
+  }
+  function drawRite() {
+    const box = $('rite-cards');
+    box.innerHTML = '';
+    for (const id of run.rite.deal) {
+      const c = run.deck.find((x) => x.id === id);
+      const el = cardElement(c, c.rarity != null ? RARITIES[c.rarity] : null);
+      el.classList.add('rite-card');
+      const i = ritePicks.indexOf(id);
+      if (i >= 0) { el.classList.add('sel'); el.dataset.order = i + 1; }
+      el.onclick = () => toggleRite(id);
+      box.appendChild(el);
+    }
+    $('rite-done').textContent = ritePicks.length ? `Apply to ${ritePicks.length} card${ritePicks.length > 1 ? 's' : ''}` : 'Skip (no cards)';
+  }
+  function toggleRite(id) {
+    if (mode !== 'rite') return;
+    const max = data.rites[run.rite.key].max;
+    ritePicks = ritePicks.includes(id) ? ritePicks.filter((x) => x !== id) : ritePicks.length < max ? [...ritePicks, id] : ritePicks;
+    audio.select();
+    drawRite();
+  }
+  $('rite-done').onclick = () => { if (mode !== 'rite') return; runAct(run, { type: 'rite', picks: ritePicks }); audio.upgrade(1); showShop(); };
+
   function showOver() {
     setMode('over');
     hudEl.classList.remove('fighting');
-    for (const id of ['sq-end', 'keep', 'relic']) $(id).hidden = true;
+    for (const id of ['sq-end', 'keep', 'shop', 'rite']) $(id).hidden = true;
     $('board').hidden = true;
     $('bottom').hidden = true;
     $('run-over').hidden = false;
     $('ro-title').textContent = run.won ? 'Run cleared!' : 'Run over';
     $('ro-title').className = run.won ? 'win' : 'lose';
-    $('ro-sum').innerHTML = `${run.history.map((h) => `R${h.round} ${h.result === 'win' ? '✔' : '✘'}`).join(' · ')}<br>Heroes: ${run.heroes.map((h) => data.heroes[h].name).join(' + ')} · kept ${run.kept.length} units · relics: ${run.relics.map((k) => data.relics[k].name).join(', ') || 'none'}`;
+    $('ro-sum').innerHTML = `${run.history.map((h) => `R${h.round} ${h.result === 'win' ? '✔' : '✘'}`).join(' · ')}<br>Heroes: ${run.heroes.map((h) => data.heroes[h].name).join(' + ')} · kept ${run.kept.length} units · relics: ${run.relics.map((k) => data.relics[k].name).join(', ') || 'none'} · talents: ${run.talents.map((k) => data.talents[k].name).join(', ') || 'none'} · gold left ${run.gold}`;
     if (run.won) audio.win(); else audio.lose();
   }
 
@@ -609,12 +668,12 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
       if (mode === 'ready') return { type: 'battle' };
       if (mode === 'fight') return { type: 'skip' };
       if (mode === 'end') return { type: 'continue' };
-      if (['play', 'choose', 'keep', 'relic'].includes(mode)) return greedy(run);
+      if (['play', 'choose', 'keep', 'shop', 'rite'].includes(mode)) return greedy(run);
       return null;
     },
     state() {
       return {
-        mode, runPhase: run.phase, choicesShown, round: st ? st.roundIndex + 1 : 0, lives: run.lives, relics: run.relics.slice(), kept: run.kept.length, won: run.won,
+        mode, runPhase: run.phase, choicesShown, round: st ? st.roundIndex + 1 : 0, gold: run.gold, bounties: run.bounties.map((b) => b.key), talents: run.talents.slice(), doctrines: { ...run.doctrines }, bought: run.bought.length, relics: run.relics.slice(), kept: run.kept.length, won: run.won,
         phase: st?.phase, reveals, selected: selected.slice(), hand: st ? st.hand.map((c) => c.id) : [],
         handsLeft: st?.handsLeft, discardsLeft: st?.discardsLeft,
         army: st ? st.army.map((u) => `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}${u.bonus ? ` (${data.bonuses[u.cls][u.bonus].name})` : ''}`) : [], power,
@@ -627,7 +686,7 @@ export function createSquadsView({ data, seed, audio, $, top, relics = [], onRes
       hudEl.hidden = true;
       hudEl.classList.remove('fighting');
       timeline = null;
-      for (const id of ['run-over', 'keep', 'relic', 'hero-pick', 'choice']) $(id).hidden = true;
+      for (const id of ['run-over', 'keep', 'shop', 'rite', 'hero-pick', 'choice']) $(id).hidden = true;
       $('board').hidden = false;
       $('bottom').hidden = false;
     },
