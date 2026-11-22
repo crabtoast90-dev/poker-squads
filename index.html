@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>Poker Squads</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ctext x=%221%22 y=%2214%22 font-size=%2215%22%3E%E2%99%A0%3C/text%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+
+    <div id="start" class="screen">
+      <h1>Poker Squads</h1>
+      <p class="sub">Every poker hand you play is born as a soldier.</p>
+      <div class="modes">
+        <button class="mode" data-mode="squads" disabled>
+          <b>Play a round</b>
+          <span>Six hands become six units. Send each to Warden Ortha's or Hexmother Vey's squad, then watch them fight the skeletons.</span>
+        </button>
+      </div>
+      <p id="loading">Loading…</p>
+    </div>
+
+    <div id="flash"></div>
+
+    <div id="sq-hud" class="hud" hidden>
+      <div id="topbar">
+        <span>Round <b>1</b></span>
+        <span>Hands <b id="hands-left"></b></span>
+        <span>Discards <b id="discards-left"></b></span>
+        <span>Units <b id="units-made"></b></span>
+        <button id="mute" title="Sound">🔊</button>
+      </div>
+      <div id="board">
+        <div class="side foes">
+          <div class="sbox"><span class="sname">Skeletons</span><div class="ucards" id="foes-0-cards"></div></div>
+          <div class="sbox"><span class="sname">Skeletons</span><div class="ucards" id="foes-1-cards"></div></div>
+        </div>
+        <div class="vs">vs</div>
+        <div class="side mine">
+          <button id="squad-0" class="sbox"><span class="sname">Warden Ortha's squad</span><div class="ucards" id="squad-0-cards"></div></button>
+          <button id="squad-1" class="sbox"><span class="sname">Hexmother Vey's squad</span><div class="ucards" id="squad-1-cards"></div></button>
+        </div>
+      </div>
+
+      <button id="battle" hidden>To battle!</button>
+      <div id="fight-ctl" hidden><button id="speed">1x</button><button id="skip">Skip ›</button></div>
+
+      <div id="bottom">
+        <div id="odds" class="panel empty">
+          <div class="row"><span id="odds-hand"></span><span id="odds-score"></span></div>
+          <div id="odds-class"></div>
+          <div id="odds-rarity"></div>
+        </div>
+        <div id="hand"></div>
+        <div id="actions"><button id="discard">Discard</button><button id="play">Play hand</button></div>
+        <div id="reveal" hidden>
+          <div class="rv-row"><span id="rv-hand"></span><span id="rv-score"></span></div>
+          <div id="rv-cards"></div>
+          <div id="rv-meter" hidden>
+            <span class="seg rar-common">C</span><span class="seg rar-uncommon">U</span><span class="seg rar-rare">R</span><span class="seg rar-epic">E</span><span class="seg rar-legendary">L</span>
+            <i id="rv-needle"></i>
+          </div>
+          <div id="rv-newborn"></div>
+          <div class="rv-row tier"><span id="rv-tier"></span><span id="rv-unit"></span></div>
+        </div>
+
+        <div id="choose" hidden>
+          <span class="ask">Send to</span>
+          <button id="to-squad-0"><b></b><span></span></button>
+          <button id="to-squad-1"><b></b><span></span></button>
+        </div>
+      </div>
+
+      <div id="sq-end" class="end panel" hidden><div id="sq-result"></div><p id="sq-mvp"></p><button id="again">Play again</button></div>
+    </div>
+
+    <button id="back" hidden>‹ Menu</button>
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
