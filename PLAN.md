@@ -1,5 +1,7 @@
 # Plan
 
+**Shelved 2026-11-22.** Brian ended this direction after playtesting; see `LEARNINGS.md`. Open items below are left as a record, not as work to do.
+
 Each item can be pasted alone into a fresh session. Every session reads `CLAUDE.md` first, follows the merge rule, adds steps to `npm run check`, and reruns `npm run sim` if it touches the sim or `src/squads/data.js`.
 
 **SHARED files** (name them when you touch them; second to merge rebases and rechecks; a fresh-eyes reviewer agent reads the diff, screenshots and BALANCE.md before merging): the card and unit data `src/squads/data.js`, the poker scorer `src/squads/poker.js`, the sim core `src/squads/sim.js` (+ `bots.js`, `run.js`), the fight `src/squads/fight.js`, plus `src/main.js`, `index.html`, `src/style.css`, `scripts/check.mjs`, `scripts/sim.mjs`.

@@ -1,5 +1,7 @@
 # Poker Squads
 
+**Shelved 2026-11-22: read `LEARNINGS.md` before doing anything here.**
+
 When the user asks for ideas, options, or a plan, give them that and stop.
 
 ## The game

@@ -1,5 +1,7 @@
 # Poker Squads
 
+**Status: shelved (2026-11-22).** What it taught: `LEARNINGS.md`.
+
 **Play: https://crabtoast90-dev.github.io/poker-squads/** (`?seed=N` picks the deal, `?mode=squads` skips the start screen, `?tune=fight.enemyPower:3` tries a number by name, `?deck=S14,H14,C14,D14` draws those cards first, `?debug` shows FPS)
 
 A prototype: play poker hands, each hand is born as a unit (suit = class, score = rarity), send it to one of two heroes' squads, then watch the squads auto-fight skeletons. It tests whether a big hand feels paid the moment its unit is revealed.

@@ -77,3 +77,6 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - Skeletons 3.3x overall (from 2.95) to offset the +10 gold and hero levels. *(my call)*
 - Brian's note on bounties ("generic enough that I hit 2 or 3 playing as if they didn't exist") is open: options offered, nothing built.
 - Review fixes *(my call)*: a hero swapped back in within the same round no longer also becomes an Ace; the hero choice no longer replays the whole reveal; hero-event card ids are unique; the check now plays a run that swaps heroes. Known: with Royal Court, a face-bonus pick is thrown away if that hand turns into a hero event.
+
+## 2026-11-22 (concept shelved)
+- Brian: this direction isn't working: (1) the core loop is the source game with extra theme, a sidegrade that is less immediately understandable, more complex and slower to resolve; (2) strategic build optimization mixed with random outputs from the player's actions doesn't work without reaction windows and high-agency responses. Move on; document learnings (LEARNINGS.md). Bounty options (D6) dropped with it.
