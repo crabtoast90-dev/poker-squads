@@ -88,7 +88,7 @@ h1 { margin: 0; font: 700 44px Georgia, serif; letter-spacing: 1px; color: #f4d5
 #rv-hand.pop, #rv-tier.pop { animation: pop 0.35s ease-out; }
 @keyframes pop { 0% { transform: scale(0.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
 #rv-cards { display: flex; gap: 6px; justify-content: center; min-height: 60px; }
-#rv-cards .card { --cw: 60px; }
+#rv-cards .card { --cw: 46px; }
 #rv-cards .card.kicker { opacity: 0.35; filter: grayscale(0.6); }
 #rv-cards .card.lit { box-shadow: 0 0 0 3px #6fb6ff, 0 0 14px #6fb6ff; }
 #rv-cards .card.chosen { box-shadow: 0 0 0 3px #fff, 0 0 22px #f4d58d; translate: 0 -8px; }
@@ -229,3 +229,23 @@ body.fighting #bottom { display: none; }
   .side { gap: 4px; }
   .sbox { padding: 4px; }
 }
+
+/* ---- one army, combat power, luck roll ---- */
+#board > .sbox { flex: none; }
+.sname .cp { margin-left: 8px; font-size: 16px; color: #fff; background: rgba(0,0,0,0.4); padding: 1px 8px; border-radius: 10px; }
+.foes .sname .cp { color: #ffb4a8; }
+#verdict { text-align: center; font-size: 14px; }
+#verdict .ahead { color: #7dff9a; } #verdict .behind { color: #ff9a8a; }
+.ucard .pw { font-weight: 800; color: #7a4bd0; font-size: 11px; }
+#odds-gain { font-size: 13px; }
+#odds-gain b { color: #c9a6ff; }
+#rv-luck { width: 100%; display: flex; flex-direction: column; gap: 3px; }
+.luck-label { font-size: 15px; }
+.luck-bar { position: relative; display: flex; height: 18px; border-radius: 9px; overflow: visible; background: #333; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2); }
+.luck-bar .z { display: block; height: 100%; }
+.luck-bar .z.stay { background: rgba(255,255,255,0.12); border-radius: 9px 0 0 9px; }
+.luck-bar .z.jump { border-radius: 0 9px 9px 0; }
+#luck-marker { position: absolute; top: -5px; bottom: -5px; width: 6px; margin-left: -3px; background: #fff; border-radius: 3px; box-shadow: 0 0 10px #fff; }
+#rv-luck.won .luck-label b { color: #ffd35a; font-size: 20px; letter-spacing: 2px; }
+#rv-luck.won .luck-bar { box-shadow: 0 0 16px #ffd35a; }
+#rv-luck.lost { opacity: 0.6; }

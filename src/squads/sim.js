@@ -1,7 +1,7 @@
-// The sim core: deck, birth, and one round (6 hands -> 6 units -> the fight). Pure and
-// deterministic: no three.js, no DOM, no Math.random, no clock. Player input enters as
-// actions ({ type: 'play' | 'discard', ids } and { type: 'assign', squad }), so the
-// check and the bots drive the exact same code the buttons do.
+// The sim core: deck, birth, and one round (6 hands -> 6 units in one army -> the fight).
+// Pure and deterministic: no DOM, no Math.random, no clock. Player input enters as actions
+// ({ type: 'play' | 'discard', ids }), so the check and the bots drive the exact same code
+// the buttons do.
 import { SUITS, CLASS_OF, RARITIES } from './data.js';
 import { evaluate } from './poker.js';
 import { createFight } from './fight.js';
@@ -33,8 +33,8 @@ export function classOdds(scoring) {
   return odds;
 }
 
-// Rarity odds: the score sets a guaranteed tier; how far it is toward the next tier is the
-// chance to roll up one (plus a small chance to jump two). Never rolls down.
+// Rarity odds: the score sets a guaranteed tier; the luck roll can lift it one tier (a small
+// base chance plus more the closer the score is to the next tier) or, rarely, two. Never down.
 export function rarityOdds(data, score) {
   const thr = data.birth.rarityThresholds;
   let tier = 0;
@@ -42,7 +42,7 @@ export function rarityOdds(data, score) {
   const odds = RARITIES.map(() => 0);
   if (tier === RARITIES.length - 1) { odds[tier] = 1; return { tier, frac: 1, odds }; }
   const frac = (score - thr[tier]) / (thr[tier + 1] - thr[tier]);
-  const up = data.birth.upChance * frac;
+  const up = Math.min(0.95, data.birth.luckBase + data.birth.upChance * frac);
   const jump = tier + 2 < RARITIES.length ? data.birth.jumpChance * frac : 0;
   odds[tier] = 1 - up - jump;
   odds[tier + 1] = up;
@@ -96,7 +96,7 @@ export function createRound(data, seed, opts = {}) {
     heroes: opts.heroes ?? data.startHeroes.slice(),
     draw: shuffle(rng, deck), used: [], hand: [],
     handsLeft: data.round.hands, discardsLeft: data.round.discards,
-    born: 0, squads: [[], []], pending: null, last: null,
+    born: 0, army: [], last: null,
     phase: 'play', fight: null, log: [],
   };
   // ?deck=S14,H14 (test hook): put these cards on top of the draw pile, drawn first.
@@ -130,7 +130,6 @@ function take(st, ids) {
   return ids.map((id) => cards.find((c) => c.id === id));
 }
 
-export const totalUnits = (st) => st.squads[0].length + st.squads[1].length;
 
 export function act(st, a) {
   const { data } = st;
@@ -144,11 +143,11 @@ export function act(st, a) {
     st.last = { ...ev, scoring: ev.scoring.map((c) => c.id), played: cards.map((c) => c.id), ...b };
     st.log.push({ type: 'play', ids: a.ids, hand: ev.hand, score: ev.score, unit: b.unit });
     refill(st);
-    st.pending = b.unit;
-    st.phase = 'assign';
-    // If one squad is full, the unit goes to the other on its own.
-    const room = [0, 1].filter((s) => st.squads[s].length < data.round.squadSize);
-    if (room.length === 1) place(st, room[0], true);
+    st.army.push(b.unit); // one army: every unit just joins
+    if (st.army.length >= data.round.armySize || st.handsLeft <= 0) {
+      st.phase = 'fight';
+      st.fight = createFight(data, armyForFight(st), st.roundIndex, fightSeed(st));
+    }
   } else if (a.type === 'discard') {
     if (st.phase !== 'play' || st.discardsLeft <= 0) throw new Error(`can't discard in phase ${st.phase}`);
     const cards = take(st, a.ids);
@@ -156,27 +155,12 @@ export function act(st, a) {
     st.used.push(...cards);
     st.log.push({ type: 'discard', ids: a.ids });
     refill(st);
-  } else if (a.type === 'assign') {
-    if (st.phase !== 'assign') throw new Error(`can't assign in phase ${st.phase}`);
-    if (st.squads[a.squad].length >= data.round.squadSize) throw new Error(`squad ${a.squad} is full`);
-    place(st, a.squad, false);
   } else throw new Error(`unknown action ${a.type}`);
   return st;
 }
 
-function place(st, squad, auto) {
-  st.squads[squad].push(st.pending);
-  st.log.push({ type: 'assign', squad, unit: st.pending.id, auto });
-  st.lastAssign = { squad, auto, unit: st.pending.id };
-  st.pending = null;
-  if (totalUnits(st) >= st.data.round.squadSize * 2 || st.handsLeft <= 0) {
-    st.phase = 'fight';
-    st.fight = createFight(st.data, squadsForFight(st), st.roundIndex, fightSeed(st));
-  } else st.phase = 'play';
-}
-
-export const squadsForFight = (st) => st.squads.map((units, s) => ({ hero: st.heroes[s], units }));
+export const armyForFight = (st) => ({ heroes: st.heroes, units: st.army });
 export const fightSeed = (st) => (st.seed * 7919 + st.roundIndex * 104729 + 17) >>> 0;
 
-// Fingerprint of the hands, births and squad picks of a round (the fight has its own).
+// Fingerprint of the hands and births of a round (the fight has its own).
 export const roundDigest = (st) => `${st.log.length} steps ${digest(st.log)}`;

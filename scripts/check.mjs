@@ -114,7 +114,7 @@ async function checkAlive(page, name) {
 async function settle(page, name, maxMs = 15000) {
   for (let t = 0; t < maxMs; t += 100) {
     const m = (await sq(page)).mode;
-    if (['play', 'choose', 'ready', 'end'].includes(m)) return m;
+    if (['play', 'ready', 'end'].includes(m)) return m;
     await advance(page, 100);
   }
   failures.push(`[${name}] stuck in mode ${(await sq(page)).mode}`);
@@ -127,8 +127,7 @@ async function doAction(page, click, a) {
     for (const id of a.ids) await click(`#hand .card[data-id="${id}"]`);
     await advance(page, 50);
     await click(a.type === 'play' ? '#play' : '#discard');
-  } else if (a.type === 'assign') await click(`#to-squad-${a.squad}`);
-  else if (a.type === 'battle') await click('#battle');
+  } else if (a.type === 'battle') await click('#battle');
 }
 
 // Play the round to the fight with the bot through the buttons, screenshotting the first reveal.
@@ -146,6 +145,9 @@ async function playRound(page, name, click, { shots = true, firstPlay = null } =
       await advance(page, 50);
       await shot(page, name, '2-odds');
       const odds = await page.evaluate(() => [document.getElementById('odds-hand').textContent, document.getElementById('odds-class').textContent, document.getElementById('odds-rarity').textContent]);
+      const gain = await page.evaluate(() => document.getElementById('odds-gain').textContent);
+      if (!/power/.test(gain)) failures.push(`[${name}] power gain not shown before committing (${gain})`);
+      odds.push(gain);
       if (!odds[1] || !odds[2].includes('%')) failures.push(`[${name}] odds not shown before committing (${odds})`);
       summaries.push(`[${name}] odds before the first hand: ${odds.join(' | ')}`);
       await click('#play');
@@ -159,16 +161,20 @@ async function playRound(page, name, click, { shots = true, firstPlay = null } =
       const R = SQUADS.reveal;
       await advance(page, R.gather + R.count + 50);
       await shot(page, name, '3-reveal-score');
-      await advance(page, R.rollBase + 200);
-      await shot(page, name, '4-reveal-rarity');
+      await advance(page, R.rollBase + R.luck * 0.5);
+      await shot(page, name, '4-reveal-luck');
+      await advance(page, R.luck * 0.5 + 100);
+      await shot(page, name, '4b-luck-result');
       await settle(page, name);
       await shot(page, name, '5-born');
     }
   }
   const s = await sq(page);
   if (s.mode !== 'ready') failures.push(`[${name}] round did not reach the fight (mode ${s.mode})`);
-  if (s.squads.flat().length !== 6) failures.push(`[${name}] expected 6 units, got ${s.squads.flat().length}`);
-  summaries.push(`[${name}] round played through the buttons: ${n} hands, squads: ${s.squads.map((x) => x.join(', ')).join(' | ')}`);
+  if (s.army.length !== 6) failures.push(`[${name}] expected 6 units, got ${s.army.length}`);
+  const cp = await page.evaluate(() => [document.getElementById('cp-mine').textContent, document.getElementById('cp-foes').textContent]);
+  if (!/\d/.test(cp[0]) || !/\d/.test(cp[1])) failures.push(`[${name}] combat power not shown (${cp})`);
+  summaries.push(`[${name}] round played through the buttons: ${n} hands, army: ${s.army.join(', ')}; power ${cp[0]} vs skeletons ${cp[1]}`);
   if (shots) await shot(page, name, '6-squads-ready');
 }
 
@@ -227,7 +233,7 @@ async function walk(page, name, click) {
   if ((await state(page)).screen !== 'start') failures.push(`[${name}] back did not return to the start screen`);
 }
 
-// ?deck puts four aces on top: hand one is Four of a Kind -> a guaranteed Legendary.
+// ?deck puts four aces on top: hand one is Four of a Kind -> Epic or better, with a luck roll.
 async function legendary(page, name, click) {
   await advance(page, 300);
   const first = { type: 'play', ids: ACES.slice(0, 4) };
@@ -236,19 +242,33 @@ async function legendary(page, name, click) {
   await shot(page, name, '1-odds');
   await click('#play');
   const R = SQUADS.reveal;
-  await advance(page, R.gather + R.count + R.rollBase + 100);
-  await shot(page, name, '2-rarity');
-  await advance(page, R.pick + R.drop * 0.6);
-  await shot(page, name, '3-drop');
-  await advance(page, R.drop * 0.4 + R.dropHighExtra + 80);
-  await shot(page, name, '4-land');
+  await advance(page, R.gather + R.count + R.rollBase + R.luck * 0.6);
+  await shot(page, name, '2-luck');
+  await advance(page, R.luck * 0.4 + 100);
+  await shot(page, name, '3-luck-result');
+  await settle(page, name);
+  await shot(page, name, '4-joined');
   await settle(page, name);
   const s = await sq(page);
-  if (!s.lastReveal || s.lastReveal.rarity !== 4) failures.push(`[${name}] four aces did not give a Legendary (${JSON.stringify(s.lastReveal)})`);
-  else summaries.push(`[${name}] four aces -> ${s.lastReveal.unit}`);
-  await shot(page, name, '5-choose');
+  if (!s.lastReveal || s.lastReveal.rarity < 3) failures.push(`[${name}] four aces did not give Epic or better (${JSON.stringify(s.lastReveal)})`);
+  else summaries.push(`[${name}] four aces (${s.lastReveal.score}) -> ${s.lastReveal.unit}; luck roll ${Math.round(s.lastReveal.upChance * 100)}% to rank up, ${s.lastReveal.rankedUp ? 'ranked up' : 'did not rank up'}`);
   await playRound(page, name, click, { shots: false, firstPlay: null });
   await playFight(page, name, click, SQUADS, ACES, { skip: true, firstPlay: first, shots: false });
+}
+
+// ?tune makes the luck roll near-certain, so the RANK UP moment is screenshotted every run.
+const RANKUP_TUNE = 'birth.luckBase:0.95';
+async function rankUp(page, name, click) {
+  await advance(page, 300);
+  const a = await page.evaluate(() => window.__game.bot());
+  await doAction(page, click, a.type === 'play' ? a : { type: 'play', ids: (await sq(page)).hand.slice(0, 2) });
+  const R = SQUADS.reveal;
+  await advance(page, R.gather + R.count + R.rollBase + R.luck + R.luckResult * 0.5);
+  await shot(page, name, '1-rank-up');
+  await settle(page, name);
+  const s = await sq(page);
+  if (!s.lastReveal?.rankedUp) failures.push(`[${name}] luck roll at ${RANKUP_TUNE} did not rank up (${JSON.stringify(s.lastReveal)})`);
+  else summaries.push(`[${name}] luck roll ranked up: ${s.lastReveal.unit}`);
 }
 
 async function tunedLoss(page, name, click) {
@@ -272,6 +292,7 @@ const DEVICES = {
 const [lopts, linput] = DEVICES.laptop;
 await run('laptop', lopts, (page) => walk(page, 'laptop', linput(page)));
 await run('laptop-legendary', lopts, (page) => legendary(page, 'laptop-legendary', linput(page)), `&mode=squads&deck=${ACES.join(',')}`);
+await run('laptop-rankup', lopts, (page) => rankUp(page, 'laptop-rankup', linput(page)), `&mode=squads&tune=${RANKUP_TUNE}`);
 await run('laptop-defeat', lopts, (page) => tunedLoss(page, 'laptop-defeat', linput(page)), `&mode=squads&tune=${LOSE_TUNE}`);
 
 await browser.close();

@@ -57,7 +57,7 @@ export function runRun(data, seed, bot, rule = data.returnRule) {
     const f = st.fight;
     while (!f.result) stepFight(data, f);
     const plays = st.log.filter((l) => l.type === 'play');
-    const units = [...st.squads[0], ...st.squads[1]];
+    const units = st.army.slice();
     if (f.result === 'lose') lives--;
     if (r === data.run.rounds - 1 && f.result === 'win') cleared = true;
     rounds.push({ round: r + 1, result: f.result, time: f.time, timeout: f.events.at(-1).timeout, hands: plays.map((p) => p.hand), scores: plays.map((p) => p.score), rarities: units.map((u) => u.rarity), units, discards, handsPlayed: hands, fight: f, lives });

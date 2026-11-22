@@ -2,7 +2,7 @@
 
 The docs may name the source game; the screen never does. These numbers are copied into `src/squads/data.js` (`poker.hands` and `poker.rankChips`).
 
-**Status: waiting for Brian's check.** Until he checks them, they are placeholders and nothing is tuned around them.
+**Status: checked by Brian on 2026-11-22: "fine for prototyping".**
 
 Confidence marks: **confirmed** = from the game itself or its official material; **two sources agree** = two independent sites give the same number; **best guess** = one source, or my reading.
 

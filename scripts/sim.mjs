@@ -9,6 +9,7 @@ import { FOUR_PLUS, HAND_NAMES } from '../src/squads/poker.js';
 import { createRound, act, roundDigest } from '../src/squads/sim.js';
 import { stepFight } from '../src/squads/fight.js';
 import { digest } from '../src/squads/rng.js';
+import { armyPowers } from '../src/squads/power.js';
 
 const D = SQUADS;
 const T = D.targets;
@@ -62,6 +63,11 @@ const fightAvg = avg(fights);
 const cleared = g.filter((r) => r.cleared);
 const runMin = avg((cleared.length ? cleared : g).map(runMinutes));
 const timeouts = allRounds(g).filter((x) => x.timeout).length;
+const r1 = g.flatMap((r) => r.rounds[0].rarities);
+const r1RarePlus = (100 * r1.filter((q) => q >= 2).length) / (r1.length || 1);
+// Does combat power call the winner? (every fight of the greedy runs)
+const calls = allRounds(g).map((x, i) => { const p = armyPowers(D, { heroes: D.startHeroes, units: x.units }, x.round - 1); return { ratio: p.mine / p.foes, win: x.result === 'win' }; });
+const predicts = (100 * calls.filter((c) => (c.ratio >= 1) === c.win).length) / calls.length;
 
 const verdicts = [
   ['Greedy bot clears the run', `${T.greedyClear.min}-${T.greedyClear.max}%`, pct(gClear), gClear >= T.greedyClear.min && gClear <= T.greedyClear.max],
@@ -69,6 +75,8 @@ const verdicts = [
   ['Hero events per round', `${T.heroEventsPerRound.min}-${T.heroEventsPerRound.max}`, 'not built yet', null],
   [`Round-8 hands that are four of a kind or better (rule "${D.returnRule}")`, `under ${T.round8FourKindPlus.max}%`, pct(drift.pct), drift.pct < T.round8FourKindPlus.max],
   ['Runs with a Legendary born in rounds 1-3', `${T.earlyLegendary.min}-${T.earlyLegendary.max}%`, pct(early), early >= T.earlyLegendary.min && early <= T.earlyLegendary.max],
+  ['Round-1 births that are Rare or better', `under ${T.round1RarePlus.max}%`, pct(r1RarePlus), r1RarePlus < T.round1RarePlus.max],
+  ['Combat power calls the winner', `${T.powerPredicts.min}%+ of fights`, pct(predicts), predicts >= T.powerPredicts.min],
   ['Fight length', `${T.fightSeconds.min}-${T.fightSeconds.max} s`, `${fightAvg.toFixed(1)} s average`, fightAvg >= T.fightSeconds.min && fightAvg <= T.fightSeconds.max],
   ['Run length (estimate, cleared runs)', `${T.runMinutes.min}-${T.runMinutes.max} min`, `${runMin.toFixed(1)} min`, runMin >= T.runMinutes.min && runMin <= T.runMinutes.max],
 ];
@@ -80,7 +88,7 @@ line('# Balance report');
 line();
 line(`Written by \`npm run sim\` on ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC (${((Date.now() - t0) / 1000).toFixed(0)} s). Do not edit by hand.`);
 line();
-line('**Numbers are placeholders.** The poker table waits for Brian\'s check of RESEARCH.md, and nothing has been tuned against these targets yet. Hero events and the on-screen run are later lanes; the run here is sim only.');
+line('Poker numbers checked by Brian (fine for prototyping). Rarity thresholds and skeleton strength were set by hand for N3 (Rare+ in round 1 under 20%, greedy clears ~30%); the full three-candidate tuning is lane C. Hero events and the on-screen run are later lanes; the run here is sim only.');
 line();
 line('## Headline');
 line();
@@ -90,7 +98,7 @@ line('| target | aim | now | |');
 line('|---|---|---|---|');
 for (const [what, aim, now, ok] of verdicts) line(`| ${what} | ${aim} | ${now} | ${ok === null ? '-' : PF(ok)} |`);
 line();
-if (lead < T.classAwareLead.min) line(`**Class barely matters yet.** Playing for classes clears only ${lead.toFixed(0)} points more than playing for raw score. In this build, rarity (score) decides fights far more than the class mix. You asked to know this.`);
+if (lead < T.classAwareLead.min) line(`**Class barely matters yet.** Playing for classes clears ${lead.toFixed(0)} points versus playing for raw score. In this build, rarity (score) decides fights far more than the class mix. You asked to know this.`);
 line();
 
 line('## Deck drift: three rules for which card a returning unit replaces');
@@ -142,6 +150,18 @@ for (const r of g) for (const x of r.rounds) for (const h of x.hands) { if (x.ro
 const handLine = (m) => { const tot = Object.values(m).reduce((s, x) => s + x, 0) || 1; return Object.entries(m).sort((a, b) => b[1] - a[1]).map(([h, n]) => `${HAND_NAMES[h]} ${pct((100 * n) / tot)}`).join(', '); };
 line(`- Hands played in round 1: ${handLine(hand1)}.`);
 line(`- Hands played in round 8: ${handLine(hand8)}.`);
+line();
+
+line('## Combat power: does the number mean anything?');
+line();
+line('Win rate by how your army\'s power compares with the skeletons\' (greedy bot, every fight):');
+line();
+line('| your power / skeleton power | fights | you win |');
+line('|---|---|---|');
+for (const [lo, hi] of [[0, 0.6], [0.6, 0.8], [0.8, 0.9], [0.9, 1], [1, 1.1], [1.1, 1.25], [1.25, 1.5], [1.5, 99]]) {
+  const b = calls.filter((c) => c.ratio >= lo && c.ratio < hi);
+  if (b.length) line(`| ${hi > 50 ? `${lo}+` : `${lo}-${hi}`} | ${b.length} | ${pct((100 * b.filter((c) => c.win).length) / b.length)} |`);
+}
 line();
 
 line('## Who does the work (greedy bot, all fights)');

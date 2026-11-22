@@ -29,3 +29,11 @@ One dated line per decision. Lines marked *(my call)* are technical or naming ca
 - Brian: rarity felt deterministic and the card number felt meaningless. Epics and Rares must be hard to get early (it is a roguelike: the deck should grow into better units over the run). Don't take too big a swing for the prototype.
 - Brian: scrap the two squads. Two heroes command one army with 6 unit slots.
 - Brian: the player needs a bar to clear, like a blind. Show a "combat power" estimate for the enemy army and for your own.
+- Brian: the poker table in RESEARCH.md is fine for prototyping (checked 2026-11-22).
+- Brian: N3 = raise the rarity thresholds (a) and stage the roll-up as a visible luck moment (c), with rarity-up moments sometimes happening inside that ceremony. Build N1, N2, N3.
+- One army: both heroes' auras apply to every unit, and stack (a Witch gets Vey's own-class bonus plus Ortha's all-class bonus). One skeleton army of 8 per round. *(my call)*
+- Combat power = 0.5 x sqrt(total effective health x total damage per second), counting armour, Hold the Line, Hex Burst splash, healing, shields and hero skills; counters left out. It calls the winner in 85% of sim fights; at equal power you win about 55-80%. *(my call)*
+- The odds panel shows the average power a hand would add (with its range), so a hand's payoff reads as "closes the gap by N". Each unit card shows "+N power", its own share of the army. *(my call)*
+- Rarity thresholds 0 / 140 / 320 / 600 / 1100. Luck roll chance = 5% + 25% x progress to the next tier; two-tier jump = 3% x progress. Round 1: 16% of births are Rare or better (target under 20%). *(my call on the numbers, Brian on the direction)*
+- Skeleton strength multiplier 1.6 so the greedy bot clears 25% (target 20-35%). A placeholder ahead of lane C tuning. *(my call)*
+- The luck roll on screen: a bar whose coloured end is the rank-up chance; a marker races and settles where the sim's roll landed, then "RANK UP!" with a flash and chime, or "No luck". *(my call)*

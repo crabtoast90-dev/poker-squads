@@ -1,28 +1,27 @@
-// The fight: pure and deterministic. Two player squads (hero + 3 units each) against two
-// skeleton squads. No placement: each squad lines up by class (Knights and Rogues in front,
+// The fight: pure and deterministic. Your army (2 heroes + up to 6 units) against one
+// skeleton army. No placement: each army lines up by class (Knights and Rogues in front,
 // Witches and Priestesses behind). Player side is z > 0, skeletons z < 0.
 import { makeRng } from './rng.js';
 
 const R = (x) => Math.round(x * 1000) / 1000; // keep positions tidy for the digest
 
-function lineUp(members, side, squad, data) {
-  const { rows, squadX, slotGap } = data.fight;
-  const sx = (squad === 0 ? -1 : 1) * squadX;
+function lineUp(members, side, data) {
+  const { rows, slotGap } = data.fight;
   const sign = side === 'p' ? 1 : -1;
   for (const row of ['front', 'back']) {
     const inRow = members.filter((m) => data.classes[m.cls].row === row);
     inRow.forEach((m, i) => {
-      m.x = R(sx + (i - (inRow.length - 1) / 2) * slotGap);
+      m.x = R((i - (inRow.length - 1) / 2) * slotGap);
       m.z = R(sign * rows[row]);
     });
   }
 }
 
-function fighter(data, id, side, squad, o) {
+function fighter(data, id, side, o) {
   const c = data.classes[o.cls];
   const hp = Math.round(c.hp * o.power * (o.hpMult ?? 1) * (1 + (o.auraHp ?? 0)));
   return {
-    id, side, squad, cls: o.cls, name: o.name, hero: !!o.hero, ability: !!o.ability, model: o.model,
+    id, side, squad: 0, cls: o.cls, name: o.name, hero: !!o.hero, ability: !!o.ability, model: o.model,
     rank: o.rank, suit: o.suit, rarity: o.rarity, power: o.power,
     maxHp: hp, hp, shield: 0, alive: true,
     atk: c.atk * data.fight.damageScale * o.power * (o.atkMult ?? 1) * (1 + (o.auraAtk ?? 0)),
@@ -32,30 +31,36 @@ function fighter(data, id, side, squad, o) {
   };
 }
 
-// squads: [{ hero: heroKey, units: [unit, unit, unit] }, ...] from the round.
-export function createFight(data, squads, roundIndex, seed) {
-  const units = [];
-  squads.forEach((sq, s) => {
-    const h = data.heroes[sq.hero];
-    const aura = (cls) => (cls === h.cls ? h.aura.own : h.aura.all);
-    const members = [fighter(data, `h${s}`, 'p', s, { cls: h.cls, name: h.name, hero: true, ability: true, power: h.power, skill: h.skill, model: h.cls, auraHp: h.aura.stat === 'hp' ? h.aura.own : 0, auraAtk: h.aura.stat === 'atk' ? h.aura.own : 0 })];
-    sq.units.forEach((u, i) => {
-      const a = aura(u.cls);
-      members.push(fighter(data, `p${s}${i}`, 'p', s, { ...u, model: u.cls, auraHp: h.aura.stat === 'hp' ? a : 0, auraAtk: h.aura.stat === 'atk' ? a : 0 }));
-    });
-    lineUp(members, 'p', s, data);
-    units.push(...members);
+// Both heroes' auras on one unit of class cls: { hp, atk } bonuses (the own-class bonus is bigger).
+export function auraFor(data, heroes, cls) {
+  const out = { hp: 0, atk: 0 };
+  for (const key of heroes) {
+    const h = data.heroes[key];
+    out[h.aura.stat] += cls === h.cls ? h.aura.own : h.aura.all;
+  }
+  return out;
+}
+
+// army: { heroes: [key, key], units: [unit, ...] } from the round.
+export function createFight(data, army, roundIndex, seed) {
+  const mine = [];
+  army.heroes.forEach((key, s) => {
+    const h = data.heroes[key];
+    const a = auraFor(data, army.heroes, h.cls);
+    mine.push(fighter(data, `h${s}`, 'p', { cls: h.cls, name: h.name, hero: true, ability: true, power: h.power, skill: h.skill, model: h.cls, auraHp: a.hp, auraAtk: a.atk }));
   });
+  army.units.forEach((u, i) => {
+    const a = auraFor(data, army.heroes, u.cls);
+    mine.push(fighter(data, `p${i}`, 'p', { ...u, model: u.cls, auraHp: a.hp, auraAtk: a.atk }));
+  });
+  lineUp(mine, 'p', data);
   const er = data.enemyRounds[Math.min(roundIndex, data.enemyRounds.length - 1)];
-  er.squads.forEach((list, s) => {
-    const members = list.map((k, i) => {
-      const sk = data.skeletons[k];
-      return fighter(data, `e${s}${i}`, 'e', s, { cls: sk.cls, name: k, ability: sk.ability, power: er.power * data.fight.enemyPower, model: sk.model, hpMult: sk.hpMult, atkMult: sk.atkMult, boss: k === 'boss' });
-    });
-    lineUp(members, 'e', s, data);
-    units.push(...members);
+  const foes = er.units.map((k, i) => {
+    const sk = data.skeletons[k];
+    return fighter(data, `e${i}`, 'e', { cls: sk.cls, name: k, ability: sk.ability, power: er.power * data.fight.enemyPower, model: sk.model, hpMult: sk.hpMult, atkMult: sk.atkMult });
   });
-  return { rng: makeRng(seed), units, time: 0, ticks: 0, result: null, events: [] };
+  lineUp(foes, 'e', data);
+  return { rng: makeRng(seed), units: [...mine, ...foes], time: 0, ticks: 0, result: null, events: [] };
 }
 
 const alive = (f, side) => f.units.filter((u) => u.alive && u.side === side);
@@ -208,8 +213,8 @@ export function stepFight(data, f) {
   return f.events.slice(start);
 }
 
-export function runFight(data, squads, roundIndex, seed) {
-  const f = createFight(data, squads, roundIndex, seed);
+export function runFight(data, army, roundIndex, seed) {
+  const f = createFight(data, army, roundIndex, seed);
   while (!f.result) stepFight(data, f);
   return f;
 }

@@ -1,8 +1,9 @@
-// One round on screen, all cards: the hand, the odds, the birth reveal, the squad pick and
-// the fight (cards trading hits with health bars). No rules here: every outcome comes from
+// One round on screen, all cards: the hand, the odds (and power gain), the birth reveal with
+// its luck roll, the army with both armies' power, and the fight (cards trading hits with health bars). No rules here: every outcome comes from
 // the sim (src/squads/); this file stages it on the game clock, so test runs repeat exactly.
 import { RARITIES, CLASS_OF } from '../squads/data.js';
-import { createRound, act, preview, squadsForFight, roundDigest } from '../squads/sim.js';
+import { createRound, act, preview, armyForFight, roundDigest, rarityOdds } from '../squads/sim.js';
+import { armyPowers, unitPower, expectedGain } from '../squads/power.js';
 import { createFight, stepFight, topUnit } from '../squads/fight.js';
 import { greedy } from '../squads/bots.js';
 import { digest } from '../squads/rng.js';
@@ -19,7 +20,7 @@ const pct = (p) => `${Math.round(p * 100)}%`;
 export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
   const st = createRound(data, seed, { top });
   const hudEl = $('sq-hud');
-  let mode = 'play'; // play | discard | reveal | choose | hop | ready | fight | end
+  let mode = 'play'; // play | discard | reveal | hop | ready | fight | end
   let selected = [];
   let timeline = null;
   const anims = [];
@@ -35,12 +36,11 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
   const cardEls = new Map(); // fight unit id -> element
 
   hudEl.hidden = false;
-  for (const id of ['sq-end', 'reveal', 'choose', 'battle', 'fight-ctl']) $(id).hidden = true;
+  for (const id of ['sq-end', 'reveal', 'battle', 'fight-ctl']) $(id).hidden = true;
   $('again').onclick = onRestart;
-  st.heroes.forEach((key, s) => { $(`to-squad-${s}`).querySelector('b').textContent = data.heroes[key].name; });
 
   // ---- Unit cards ----
-  function unitCard(u) {
+  function unitCard(u, worth = null) {
     const el = document.createElement('div');
     const suit = u.side === 'e' ? null : u.suit ?? CLASS_SUIT[u.cls];
     el.className = `ucard${u.hero ? ' hero' : ''}${u.side === 'e' ? ' enemy' : ''}${u.rarity != null && !u.hero ? ` rar-${RARITIES[u.rarity]}` : ''}`;
@@ -48,37 +48,40 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
     const head = u.side === 'e' ? `<b class="rk">☠</b>` : u.hero ? `<b class="rk">♛${SUIT_SYMBOL[suit]}</b>` : `<b class="rk">${rankLabel(u.rank)}${SUIT_SYMBOL[suit]}</b>`;
     const name = u.side === 'e' ? SKELETON_NAME[u.name] : u.hero ? u.name : `${RARITY_NAME[u.rarity]} ${data.classes[u.cls].name}`;
     const ab = u.side !== 'e' && !u.hero && u.ability ? `<em>${data.abilities[u.cls].name}</em>` : '';
-    el.innerHTML = `${head}<span class="nm">${name}</span>${ab}<span class="st">♥ <b class="hpn">${u.hp}</b> ⚔ ${u.atk.toFixed(0)}</span><span class="hp"><i></i></span>`;
+    el.innerHTML = `${head}<span class="nm">${name}</span>${ab}${worth != null ? `<span class="pw">+${worth} power</span>` : ''}<span class="st">♥ <b class="hpn">${u.hp}</b> ⚔ ${u.atk.toFixed(0)}</span><span class="hp"><i></i></span>`;
     return el;
   }
-  // The board: both sides as the fight would line them up right now.
+  // The board: both armies as the fight would line them up right now, with their power.
   function drawBoard() {
-    const f = fight ?? createFight(data, squadsForFight(st), st.roundIndex, 0);
+    const f = fight ?? createFight(data, armyForFight(st), st.roundIndex, 0);
     cardEls.clear();
-    for (const side of ['p', 'e']) for (const s of [0, 1]) {
-      const box = $(`${side === 'p' ? 'squad' : 'foes'}-${s}-cards`);
+    for (const side of ['p', 'e']) {
+      const box = $(side === 'p' ? 'army-cards' : 'foes-cards');
       box.innerHTML = '';
-      for (const u of f.units.filter((x) => x.side === side && x.squad === s)) {
-        const el = unitCard(u);
+      for (const u of f.units.filter((x) => x.side === side)) {
+        const i = u.id.startsWith('p') ? Number(u.id.slice(1)) : -1;
+        const el = unitCard(u, i >= 0 ? unitPower(data, armyForFight(st), st.roundIndex, i) : null);
         box.appendChild(el);
         cardEls.set(u.id, el);
       }
-      if (side === 'p') for (let i = st.squads[s].length; i < data.round.squadSize; i++) {
+      if (side === 'p') for (let i = st.army.length; i < data.round.armySize; i++) {
         const e = document.createElement('div');
         e.className = 'ucard empty';
         e.textContent = 'open slot';
         box.appendChild(e);
       }
     }
-    for (const s of [0, 1]) {
-      $(`squad-${s}`).classList.toggle('full', st.squads[s].length >= data.round.squadSize);
-      $(`to-squad-${s}`).disabled = st.squads[s].length >= data.round.squadSize;
-      $(`to-squad-${s}`).querySelector('span').textContent = `${st.squads[s].length}/${data.round.squadSize}`;
-    }
+    const p = armyPowers(data, armyForFight(st), st.roundIndex);
+    power = p;
+    $('cp-foes').textContent = `⚡ ${p.foes}`;
+    $('cp-mine').textContent = `⚡ ${p.mine}`;
+    const gap = p.mine - p.foes;
+    $('verdict').innerHTML = gap >= 0 ? `<b class="ahead">Ahead by ${gap}</b>: the stronger army usually wins` : `<b class="behind">Behind by ${-gap}</b>: ${st.handsLeft} hand${st.handsLeft === 1 ? '' : 's'} left to close it`;
     $('hands-left').textContent = st.handsLeft;
     $('discards-left').textContent = st.discardsLeft;
-    $('units-made').textContent = `${st.squads[0].length + st.squads[1].length}/${data.round.squadSize * 2}`;
+    $('units-made').textContent = `${st.army.length}/${data.round.armySize}`;
   }
+  let power = null;
 
   // ---- The hand ----
   function drawHand(dealIn = []) {
@@ -115,12 +118,15 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
       $('odds-score').textContent = '';
       $('odds-class').innerHTML = '';
       $('odds-rarity').innerHTML = '';
+      $('odds-gain').textContent = '';
       return;
     }
     $('odds-hand').textContent = pv.name;
     $('odds-score').innerHTML = `<b class="chips">${pv.chips}</b> × <b class="mult">${pv.mult}</b> = <b>${pv.score}</b>`;
     $('odds-class').innerHTML = Object.entries(pv.classOdds).sort((a, b) => b[1] - a[1])
       .map(([suit, p]) => `<span class="co" style="--suit:${SUIT_COLOR[suit]}"><i>${SUIT_SYMBOL[suit]}</i>${data.classes[CLASS_OF[suit]].name} ${pct(p)}</span>`).join('');
+    const g = expectedGain(data, armyForFight(st), st.roundIndex, pv);
+    $('odds-gain').innerHTML = `Adds about <b>+${g.avg} power</b> <small>(${g.lo} to ${g.hi})</small>${power ? ` → ${power.mine + g.avg} vs skeletons ${power.foes}` : ''}`;
     $('odds-rarity').innerHTML = pv.rarity.odds.map((p, i) => `<span class="ro rar-${RARITIES[i]}${p > 0 ? ' on' : ''}" style="flex:${p > 0 ? 1 + p * 3 : 0.6}"><b>${RARITY_NAME[i]}</b><s>${RARITY_NAME[i][0]}</s>${p > 0 ? pct(p) : ''}</span>`).join('');
   }
 
@@ -144,20 +150,14 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
   function setMode(m) {
     mode = m;
     hudEl.dataset.mode = m;
-    $('choose').hidden = m !== 'choose';
     $('battle').hidden = m !== 'ready';
     $('fight-ctl').hidden = m !== 'fight';
-    $('reveal').hidden = !(m === 'reveal' || m === 'choose' || m === 'hop');
-    for (const s of [0, 1]) $(`squad-${s}`).classList.toggle('pickable', m === 'choose' && st.squads[s].length < data.round.squadSize);
+    $('reveal').hidden = !(m === 'reveal' || m === 'hop');
     drawOdds();
   }
 
   $('play').onclick = () => { if (mode === 'play' && selected.length) play(); };
   $('discard').onclick = () => { if (mode === 'play' && selected.length) discard(); };
-  $('to-squad-0').onclick = () => assign(0);
-  $('to-squad-1').onclick = () => assign(1);
-  $('squad-0').onclick = () => assign(0);
-  $('squad-1').onclick = () => assign(1);
   $('battle').onclick = () => { if (mode === 'ready') startFight(); };
   $('speed').onclick = () => { speed = speed === 1 ? 2 : 1; $('speed').textContent = `${speed}x`; };
   $('skip').onclick = () => { if (mode === 'fight') skipFight(); };
@@ -187,9 +187,8 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
     selected = [];
     const L = st.last;
     const u = L.unit;
-    const auto = st.lastAssign?.unit === u.id && st.lastAssign.auto;
     reveals++;
-    lastReveal = { hand: L.hand, score: L.score, tier: L.tier, rarity: u.rarity, unit: `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}`, auto };
+    lastReveal = { hand: L.hand, score: L.score, tier: L.tier, rarity: u.rarity, upChance: +(rarityOdds(data, L.score).odds.slice(L.tier + 1).reduce((a, b) => a + b, 0)).toFixed(3), rankedUp: u.rarity > L.tier, unit: `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}` };
     setMode('reveal');
     const R = data.reveal;
     const rv = $('rv-cards');
@@ -210,9 +209,14 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
     const ups = u.rarity - L.tier;
     const high = u.rarity >= 3;
     const tCount = R.gather + R.count;
-    const tRoll = tCount + R.rollBase + R.rollPerTier * ups;
+    const tLuck = tCount + R.rollBase;
+    const canLuck = L.tier < RARITIES.length - 1;
+    const luckOdds = rarityOdds(data, L.score).odds;
+    const upChance = luckOdds.slice(L.tier + 1).reduce((a, b) => a + b, 0);
+    const tRoll = canLuck ? tLuck + R.luck + R.luckResult + R.rollPerTier * ups : tLuck;
     const tPick = tRoll + (scoring.length > 1 ? R.pick : 160);
     const tLand = tPick + R.drop + (high ? R.dropHighExtra : 0);
+    $('rv-luck').hidden = true;
     const thr = data.birth.rarityThresholds;
     const meterPos = (score) => {
       let i = 0;
@@ -243,21 +247,52 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
       ...scoring.map((f, i) => ({ at: R.gather + (R.count * 0.75 * (i + 0.5)) / scoring.length, fn: () => audio.chip(i) })),
       { at: R.gather + R.count * 0.8, fn: () => audio.mult() },
       { at: tCount, fn: () => { $('rv-meter').hidden = false; drawMeter(0, L.tier, false); } },
+      // The needle sweeps to the score: that is the guaranteed tier.
       { at: tCount, frame: (t) => {
+        if (t > R.rollBase + R.luck) return;
         const sweep = R.rollBase * 0.7;
-        if (t < sweep) {
-          const pos = target * ease(clamp01(t / sweep));
-          const tk = Math.floor(pos * 4);
-          if (tk > ticks) { ticks = tk; audio.tick(tk); }
-          drawMeter(pos, Math.min(4, Math.floor(pos)), false);
-        } else if (t < R.rollBase) drawMeter(target, L.tier, false);
-        else {
-          const extra = Math.min(ups, Math.floor((t - R.rollBase) / R.rollPerTier) + 1);
-          drawMeter(ups ? Math.min(5, Math.max(target, L.tier + extra)) : target, ups ? L.tier + extra : L.tier, ups > 0);
-        }
+        const pos = t < sweep ? target * ease(clamp01(t / sweep)) : target;
+        const tk = Math.floor(pos * 4);
+        if (tk > ticks) { ticks = tk; audio.tick(tk); }
+        drawMeter(pos, Math.min(L.tier, Math.floor(pos)), false);
       } },
-      ...Array.from({ length: ups }, (_, k) => ({ at: tCount + R.rollBase + k * R.rollPerTier, fn: () => { audio.upgrade(L.tier + k + 1); flash(RARITY_HEX[L.tier + k + 1], 0.35); setTier(L.tier + k + 1, true); } })),
-      { at: tCount + R.rollBase, fn: () => { if (!ups) setTier(u.rarity, false); } },
+      { at: tLuck, fn: () => setTier(L.tier, false) },
+      // The luck roll: a marker races over the bar and settles where the sim's roll landed.
+      // Landing in the coloured zone ranks the unit up (the gold sliver: two tiers).
+      ...(canLuck ? [
+        { at: tLuck, fn: () => {
+          $('rv-luck').hidden = false;
+          $('luck-label').innerHTML = `Luck roll: <b>${pct(upChance)}</b> to rank up to ${RARITY_NAME[L.tier + 1]}`;
+          const z = $('rv-luck').querySelectorAll('.z');
+          z[0].style.width = `${luckOdds[L.tier] * 100}%`;
+          z[1].style.width = `${(luckOdds[L.tier + 1] ?? 0) * 100}%`;
+          z[1].style.background = RARITY_HEX[L.tier + 1];
+          z[2].style.width = `${(luckOdds[L.tier + 2] ?? 0) * 100}%`;
+          z[2].style.background = RARITY_HEX[Math.min(4, L.tier + 2)];
+          $('rv-luck').className = '';
+          ticks = 0;
+        } },
+        { at: tLuck, frame: (t) => {
+          if (t > R.luck) return;
+          const k = clamp01(t / R.luck);
+          const amp = (1 - k) ** 2;
+          const pos = clamp01(L.roll + amp * Math.sin(t / 38) * 0.9);
+          $('luck-marker').style.left = `${(k >= 1 ? L.roll : pos) * 100}%`;
+          const tk = Math.floor(t / 70);
+          if (tk !== ticks && k < 0.85) { ticks = tk; audio.tick(tk % 6); }
+        } },
+        { at: tLuck + R.luck, fn: () => {
+          $('luck-marker').style.left = `${L.roll * 100}%`;
+          if (ups) {
+            $('rv-luck').className = 'won';
+            $('luck-label').innerHTML = `<b>RANK UP!</b> ${RARITY_NAME[L.tier]} → ${RARITY_NAME[u.rarity]}`;
+          } else {
+            $('rv-luck').className = 'lost';
+            $('luck-label').innerHTML = `No luck: stays ${RARITY_NAME[L.tier]}`;
+          }
+        } },
+        ...Array.from({ length: ups }, (_, k) => ({ at: tLuck + R.luck + k * R.rollPerTier, fn: () => { audio.upgrade(L.tier + k + 1); flash(RARITY_HEX[L.tier + k + 1], 0.45); setTier(L.tier + k + 1, true); drawMeter(Math.min(5, L.tier + k + 1.5), L.tier + k + 1, true); } })),
+      ] : []),
       { at: tRoll, fn: () => { ticks = -1; } },
       { at: tRoll, frame: (t) => {
         if (scoring.length < 2) { picked.el.classList.add('chosen'); return; }
@@ -273,20 +308,14 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
       // The unit card is born: it grows out of the picked card.
       { at: tLand, fn: () => {
         rv.innerHTML = '';
-        const el = unitCard(createFight(data, [{ hero: st.heroes[0], units: [u] }, { hero: st.heroes[1], units: [] }], 0, 0).units[1]);
+        const el = unitCard(createFight(data, { heroes: st.heroes, units: [u] }, st.roundIndex, 0).units[2], unitPower(data, { heroes: st.heroes, units: [...st.army.slice(0, -1), u] }, st.roundIndex, st.army.length - 1));
         el.classList.add('born');
         $('rv-newborn').appendChild(el);
         if (high) flash(RARITY_HEX[u.rarity], u.rarity === 4 ? 0.7 : 0.45);
         audio.land(u.rarity);
         $('rv-unit').innerHTML = u.ability ? `Ability: <i>${data.abilities[u.cls].name}</i>` : 'Plain body (no ability)';
       } },
-      { at: tLand + R.settle, fn: () => {
-        if (auto) {
-          const s = st.squads[0].includes(u) ? 0 : 1;
-          $('rv-unit').innerHTML += ` · squad full: joins ${data.heroes[st.heroes[s]].name}`;
-          hop(s);
-        } else setMode('choose');
-      } },
+      { at: tLand + R.settle, fn: join },
     ];
     startTimeline(steps, null);
     pendingReveal = { before };
@@ -304,21 +333,15 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
     flashLeft = amount;
   }
 
-  function assign(s) {
-    if (mode !== 'choose' || st.squads[s].length >= data.round.squadSize) return;
-    audio.unlock();
-    act(st, { type: 'assign', squad: s });
-    hop(s);
-  }
-  function hop(s) {
+  // The newborn joins the army; the power numbers update.
+  function join() {
     setMode('hop');
     audio.hop();
     drawBoard();
-    $(`squad-${s}`).classList.remove('bump');
-    void $(`squad-${s}`).offsetWidth;
-    $(`squad-${s}`).classList.add('bump');
-    const newest = cardEls.get(`p${s}${st.squads[s].length - 1}`);
-    newest?.classList.add('born');
+    cardEls.get(`p${st.army.length - 1}`)?.classList.add('born');
+    $('army').classList.remove('bump');
+    void $('army').offsetWidth;
+    $('army').classList.add('bump');
     startTimeline([{ at: data.reveal.hop, fn: () => {
       $('rv-newborn').innerHTML = '';
       drawHand(st.hand.map((c) => c.id).filter((x) => !pendingReveal.before.has(x)));
@@ -395,7 +418,7 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
     $('sq-result').textContent = fight.result === 'win' ? 'Victory' : 'Defeat';
     $('sq-result').className = fight.result;
     const desc = t.hero ? `${t.name} (hero)` : `${RARITY_NAME[t.rarity]} ${rankLabel(t.rank)}${SUIT_SYMBOL[t.suit]} ${data.classes[t.cls].name}`;
-    $('sq-mvp').innerHTML = `Carried by <b>${desc}</b>: ${Math.round((100 * (t.dealt + t.healed)) / tot)}% of your squads' work · ${fight.time.toFixed(1)} s`;
+    $('sq-mvp').innerHTML = `Carried by <b>${desc}</b>: ${Math.round((100 * (t.dealt + t.healed)) / tot)}% of your army's work · ${fight.time.toFixed(1)} s`;
     $('sq-end').hidden = false;
     if (fight.result === 'win') audio.win(); else audio.lose();
   }
@@ -428,7 +451,7 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
       $('flash').style.opacity = flashLeft;
     },
     bot() {
-      if (mode === 'play' || mode === 'choose') return greedy(st);
+      if (mode === 'play') return greedy(st);
       if (mode === 'ready') return { type: 'battle' };
       return null;
     },
@@ -436,7 +459,7 @@ export function createSquadsView({ data, seed, audio, $, top, onRestart }) {
       return {
         mode, phase: st.phase, reveals, selected: selected.slice(),
         hand: st.hand.map((c) => c.id), handsLeft: st.handsLeft, discardsLeft: st.discardsLeft,
-        squads: st.squads.map((sq) => sq.map((u) => `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}`)),
+        army: st.army.map((u) => `${RARITY_NAME[u.rarity]} ${cardName(u)} ${data.classes[u.cls].name}`), power,
         lastReveal, roundDigest: roundDigest(st), speed, skipped,
         fight: fight ? { time: fight.time, result: fight.result, events: fight.events.length, digest: `${fight.events.length} events ${digest(fight.events)}` } : null,
       };

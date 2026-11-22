@@ -15,7 +15,7 @@
       <div class="modes">
         <button class="mode" data-mode="squads" disabled>
           <b>Play a round</b>
-          <span>Six hands become six units. Send each to Warden Ortha's or Hexmother Vey's squad, then watch them fight the skeletons.</span>
+          <span>Six hands become six units in Warden Ortha and Hexmother Vey's army. Beat the skeleton army's power, then watch the fight.</span>
         </button>
       </div>
       <p id="loading">Loading…</p>
@@ -32,15 +32,9 @@
         <button id="mute" title="Sound">🔊</button>
       </div>
       <div id="board">
-        <div class="side foes">
-          <div class="sbox"><span class="sname">Skeletons</span><div class="ucards" id="foes-0-cards"></div></div>
-          <div class="sbox"><span class="sname">Skeletons</span><div class="ucards" id="foes-1-cards"></div></div>
-        </div>
-        <div class="vs">vs</div>
-        <div class="side mine">
-          <button id="squad-0" class="sbox"><span class="sname">Warden Ortha's squad</span><div class="ucards" id="squad-0-cards"></div></button>
-          <button id="squad-1" class="sbox"><span class="sname">Hexmother Vey's squad</span><div class="ucards" id="squad-1-cards"></div></button>
-        </div>
+        <div class="sbox foes"><span class="sname">Skeleton army <b class="cp" id="cp-foes"></b></span><div class="ucards" id="foes-cards"></div></div>
+        <div id="verdict"></div>
+        <div class="sbox mine" id="army"><span class="sname">Your army <b class="cp" id="cp-mine"></b></span><div class="ucards" id="army-cards"></div></div>
       </div>
 
       <button id="battle" hidden>To battle!</button>
@@ -51,6 +45,7 @@
           <div class="row"><span id="odds-hand"></span><span id="odds-score"></span></div>
           <div id="odds-class"></div>
           <div id="odds-rarity"></div>
+          <div id="odds-gain"></div>
         </div>
         <div id="hand"></div>
         <div id="actions"><button id="discard">Discard</button><button id="play">Play hand</button></div>
@@ -61,15 +56,11 @@
             <span class="seg rar-common">C</span><span class="seg rar-uncommon">U</span><span class="seg rar-rare">R</span><span class="seg rar-epic">E</span><span class="seg rar-legendary">L</span>
             <i id="rv-needle"></i>
           </div>
+          <div id="rv-luck" hidden><div class="luck-label" id="luck-label"></div><div class="luck-bar"><i class="z stay"></i><i class="z up"></i><i class="z jump"></i><b id="luck-marker"></b></div></div>
           <div id="rv-newborn"></div>
           <div class="rv-row tier"><span id="rv-tier"></span><span id="rv-unit"></span></div>
         </div>
 
-        <div id="choose" hidden>
-          <span class="ask">Send to</span>
-          <button id="to-squad-0"><b></b><span></span></button>
-          <button id="to-squad-1"><b></b><span></span></button>
-        </div>
       </div>
 
       <div id="sq-end" class="end panel" hidden><div id="sq-result"></div><p id="sq-mvp"></p><button id="again">Play again</button></div>

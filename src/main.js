@@ -48,7 +48,7 @@ function stateText() {
     const v = view.state();
     lines.push(`round: ${v.mode}; hands left ${v.handsLeft}, discards left ${v.discardsLeft}; reveals ${v.reveals}`);
     if (v.lastReveal) lines.push(`  last birth: ${v.lastReveal.hand} scoring ${v.lastReveal.score} -> ${v.lastReveal.unit}`);
-    v.squads.forEach((sq, s) => lines.push(`  squad ${s}: ${sq.join(', ') || '(empty)'}`));
+    lines.push(`  army: ${v.army.join(', ') || '(empty)'}${v.power ? `; power ${v.power.mine} vs skeletons ${v.power.foes}` : ''}`);
     if (v.fight) lines.push(`  fight: ${v.fight.time.toFixed(1)} s, ${v.fight.events} events${v.fight.result ? `, ${v.fight.result}` : ''}${v.skipped ? ' (skipped)' : ''}`);
   }
   return lines.join('\n');
